@@ -141,6 +141,12 @@ def generate_act_pdf(
         fontName=bold_font,
     )
 
+    header_style = ParagraphStyle(
+        "Header",
+        parent=cell_bold_style,
+        textColor=colors.white,
+    )
+    
     footer_style = ParagraphStyle(
         "Footer",
         parent=styles["Normal"],
@@ -165,11 +171,11 @@ def generate_act_pdf(
 
     table_data = [
         [
-            Paragraph("№", cell_bold_style),
-            Paragraph("Тип", cell_bold_style),
-            Paragraph("Категория", cell_bold_style),
-            Paragraph("Позиция", cell_bold_style),
-            Paragraph("Расположение", cell_bold_style),
+            Paragraph("№", header_style),
+            Paragraph("Тип", header_style),
+            Paragraph("Категория", header_style),
+            Paragraph("Позиция", header_style),
+            Paragraph("Расположение", header_style),
         ]
     ]
 
