@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from datetime import datetime
+from zoneinfo import ZoneInfo
 from html import escape
 from io import BytesIO
 from pathlib import Path
@@ -22,7 +23,7 @@ TEXT = colors.HexColor("#1D2523")
 MUTED = colors.HexColor("#6B7280")
 LINE = colors.HexColor("#DDE5E1")
 SOFT_GREEN = colors.HexColor("#F1F8F5")
-
+ALMATY_TZ = ZoneInfo("Asia/Almaty")
 
 def _first_existing(paths: Iterable[str]) -> str | None:
     for value in paths:
@@ -157,7 +158,7 @@ def generate_act_pdf(
         alignment=TA_CENTER,
     )
 
-    now = datetime.now()
+    now = datetime.now(ALMATY_TZ)
 
     story = [
         Paragraph("CarcityPRO", brand_style),
