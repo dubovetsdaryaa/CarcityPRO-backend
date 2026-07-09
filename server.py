@@ -4,9 +4,11 @@ import hashlib
 import hmac
 import json
 import os
+import secrets
 import time
 from contextlib import asynccontextmanager
 from datetime import datetime
+from html import escape
 from urllib.parse import parse_qsl
 from zoneinfo import ZoneInfo
 
@@ -15,7 +17,20 @@ from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 
+from database import (
+    database_enabled,
+    get_acts_count,
+    get_acts_page,
+    get_all_acts_for_export,
+    get_stats,
+    get_top_users,
+    init_database,
+    record_sent_act,
+    touch_user,
+    track_app_open,
+)
 from pdf_generator import generate_act_pdf
+from xlsx_export import build_acts_xlsx
 
 
 GITHUB_PAGES_ORIGIN = "https://dubovetsdaryaa.github.io"
@@ -25,6 +40,34 @@ WEBHOOK_PATH = "/telegram/webhook"
 
 ALMATY_TZ = ZoneInfo("Asia/Almaty")
 MAX_INIT_DATA_AGE_SECONDS = 24 * 60 * 60
+BYTES_IN_GB = 1024 ** 3
+
+
+def load_database_storage_limit_gb() -> float:
+    raw_value = os.environ.get(
+        "DB_STORAGE_LIMIT_GB",
+        "1",
+    ).strip()
+
+    try:
+        value = float(raw_value)
+
+        if value <= 0:
+            raise ValueError
+
+        return value
+    except ValueError:
+        print(
+            "WARNING: DB_STORAGE_LIMIT_GB is invalid. "
+            "Using 1 GB."
+        )
+        return 1.0
+
+
+DATABASE_STORAGE_LIMIT_GB = load_database_storage_limit_gb()
+DATABASE_STORAGE_LIMIT_BYTES = int(
+    DATABASE_STORAGE_LIMIT_GB * BYTES_IN_GB
+)
 
 
 def load_bot_token() -> str:
@@ -32,18 +75,29 @@ def load_bot_token() -> str:
 
     if not token:
         raise RuntimeError(
-            "Переменная окружения BOT_TOKEN не задана. "
-            "Добавьте токен Telegram-бота в Environment Variables."
+            "Переменная окружения BOT_TOKEN не задана."
         )
 
     return token
 
 
+def load_admin_id() -> int:
+    raw_value = os.environ.get("ADMIN_TELEGRAM_ID", "").strip()
+
+    if not raw_value:
+        return 0
+
+    try:
+        return int(raw_value)
+    except ValueError:
+        print("WARNING: ADMIN_TELEGRAM_ID is not a valid integer.")
+        return 0
+
+
 BOT_TOKEN = load_bot_token()
+ADMIN_TELEGRAM_ID = load_admin_id()
 TELEGRAM_API_URL = f"https://api.telegram.org/bot{BOT_TOKEN}"
 
-# Telegram secret_token поддерживает A-Z, a-z, 0-9, _ и -.
-# SHA-256 hex подходит под эти ограничения.
 WEBHOOK_SECRET = hashlib.sha256(
     BOT_TOKEN.encode("utf-8")
 ).hexdigest()
@@ -54,6 +108,10 @@ class ActItem(BaseModel):
     group: str = Field(min_length=1, max_length=200)
     item: str = Field(min_length=1, max_length=300)
     position: str | None = Field(default=None, max_length=200)
+
+
+class AppOpenRequest(BaseModel):
+    init_data: str = Field(min_length=1)
 
 
 class GenerateActRequest(BaseModel):
@@ -90,6 +148,23 @@ async def telegram_api(
     return result
 
 
+async def send_text_message(
+    chat_id: int,
+    text: str,
+    *,
+    parse_mode: str | None = "HTML",
+) -> None:
+    payload = {
+        "chat_id": chat_id,
+        "text": text,
+    }
+
+    if parse_mode:
+        payload["parse_mode"] = parse_mode
+
+    await telegram_api("sendMessage", payload)
+
+
 async def configure_telegram_webhook() -> None:
     webhook_url = f"{PUBLIC_BASE_URL}{WEBHOOK_PATH}"
 
@@ -99,17 +174,17 @@ async def configure_telegram_webhook() -> None:
             {
                 "url": webhook_url,
                 "secret_token": WEBHOOK_SECRET,
-                "allowed_updates": ["message"],
+                "allowed_updates": ["message", "callback_query"],
             },
         )
         print(f"Telegram webhook configured: {webhook_url}")
     except Exception as error:
-        # Не роняем весь FastAPI-сервис из-за временной ошибки Telegram.
         print(f"WARNING: Telegram webhook setup failed: {error}")
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    await init_database()
     await configure_telegram_webhook()
     yield
 
@@ -194,6 +269,63 @@ def validate_telegram_init_data(init_data: str) -> dict:
     }
 
 
+def is_admin(user_id: int) -> bool:
+    return bool(
+        ADMIN_TELEGRAM_ID
+        and user_id == ADMIN_TELEGRAM_ID
+    )
+
+
+def format_storage_size(size_bytes: int) -> str:
+    size = max(int(size_bytes), 0)
+
+    if size >= 1024 ** 3:
+        return f"{size / (1024 ** 3):.2f} GB"
+
+    if size >= 1024 ** 2:
+        return f"{size / (1024 ** 2):.1f} MB"
+
+    if size >= 1024:
+        return f"{size / 1024:.1f} KB"
+
+    return f"{size} B"
+
+
+def format_storage_limit(limit_gb: float) -> str:
+    if float(limit_gb).is_integer():
+        return f"{int(limit_gb)} GB"
+
+    return f"{limit_gb:g} GB"
+
+
+def storage_progress(percent: float) -> str:
+    safe_percent = min(max(percent, 0.0), 100.0)
+    filled = min(10, int(safe_percent / 10))
+    return "▓" * filled + "░" * (10 - filled)
+
+
+def user_label(row: dict) -> str:
+    full_name = " ".join(
+        part
+        for part in [
+            str(row.get("first_name") or "").strip(),
+            str(row.get("last_name") or "").strip(),
+        ]
+        if part
+    )
+
+    username = str(row.get("username") or "").strip()
+
+    if username:
+        username = f"@{username}"
+
+    return " · ".join(
+        value
+        for value in [full_name, username]
+        if value
+    ) or f"ID {row.get('telegram_id')}"
+
+
 async def send_start_message(chat_id: int) -> None:
     text = (
         "👋 <b>Добро пожаловать в CarcityPRO!</b>\n\n"
@@ -224,6 +356,270 @@ async def send_start_message(chat_id: int) -> None:
             },
         },
     )
+
+
+async def send_admin_stats(chat_id: int) -> None:
+    today_start = datetime.now(ALMATY_TZ).replace(
+        hour=0,
+        minute=0,
+        second=0,
+        microsecond=0,
+    )
+
+    stats = await get_stats(today_start)
+
+    database_size_bytes = stats["database_size_bytes"]
+    storage_percent = (
+        database_size_bytes
+        / DATABASE_STORAGE_LIMIT_BYTES
+        * 100
+    )
+    storage_percent = max(storage_percent, 0.0)
+
+    storage_warning = ""
+
+    if storage_percent >= 90:
+        storage_warning = (
+            "\n⚠️ <b>Критично: база заполнена более чем на 90%.</b>"
+        )
+    elif storage_percent >= 80:
+        storage_warning = (
+            "\n⚠️ База заполнена более чем на 80%."
+        )
+
+    text = (
+        "📊 <b>CarcityPRO — статистика</b>\n\n"
+        f"👤 Пользователей: <b>{stats['users']}</b>\n"
+        f"🚀 Запусков приложения: <b>{stats['app_opens']}</b>\n"
+        f"📄 Получено актов: <b>{stats['acts']}</b>\n\n"
+        "<b>Сегодня:</b>\n"
+        f"👤 Активных пользователей: <b>{stats['today_active_users']}</b>\n"
+        f"🚀 Запусков: <b>{stats['today_app_opens']}</b>\n"
+        f"📄 Актов: <b>{stats['today_acts']}</b>\n\n"
+        "<b>Хранилище PostgreSQL:</b>\n"
+        f"💾 Использовано: <b>{format_storage_size(database_size_bytes)}</b>"
+        f" / {format_storage_limit(DATABASE_STORAGE_LIMIT_GB)}\n"
+        f"{storage_progress(storage_percent)} "
+        f"<b>{storage_percent:.2f}%</b>"
+        f"{storage_warning}"
+    )
+
+    await send_text_message(chat_id, text)
+
+
+def acts_keyboard(
+    *,
+    page: int,
+    total_pages: int,
+) -> dict | None:
+    if total_pages <= 1:
+        return None
+
+    buttons = []
+
+    if page > 0:
+        buttons.append(
+            {
+                "text": "← Назад",
+                "callback_data": f"acts_page:{page - 1}",
+            }
+        )
+
+    buttons.append(
+        {
+            "text": f"{page + 1} / {total_pages}",
+            "callback_data": "acts_noop",
+        }
+    )
+
+    if page + 1 < total_pages:
+        buttons.append(
+            {
+                "text": "Вперёд →",
+                "callback_data": f"acts_page:{page + 1}",
+            }
+        )
+
+    return {
+        "inline_keyboard": [buttons],
+    }
+
+
+async def acts_page_payload(
+    page: int,
+    *,
+    page_size: int = 10,
+) -> tuple[str, dict | None, int]:
+    total_acts = await get_acts_count()
+
+    if total_acts <= 0:
+        return "📄 Актов пока нет.", None, 0
+
+    total_pages = max(
+        1,
+        (total_acts + page_size - 1) // page_size,
+    )
+
+    safe_page = min(max(page, 0), total_pages - 1)
+    rows = await get_acts_page(
+        limit=page_size,
+        offset=safe_page * page_size,
+    )
+
+    parts = [
+        (
+            "📄 <b>Акты CarcityPRO</b>\n"
+            f"Всего: <b>{total_acts}</b>"
+        )
+    ]
+
+    start_number = safe_page * page_size + 1
+
+    for row_number, row in enumerate(
+        rows,
+        start=start_number,
+    ):
+        created_at = row["created_at"].astimezone(ALMATY_TZ)
+
+        parts.append(
+            "\n"
+            f"<b>{row_number}. №{escape(str(row['act_number']))}</b>\n"
+            f"{escape(str(row.get('sto') or 'СТО не указано'))}\n"
+            f"{escape(str(row.get('car') or 'Автомобиль не указан'))}\n"
+            f"Позиций: {int(row['items_count'])}\n"
+            f"Создал: {escape(user_label(row))}\n"
+            f"{created_at:%d.%m.%Y %H:%M}"
+        )
+
+    return (
+        "\n".join(parts),
+        acts_keyboard(
+            page=safe_page,
+            total_pages=total_pages,
+        ),
+        safe_page,
+    )
+
+
+async def send_recent_acts(
+    chat_id: int,
+    *,
+    page: int = 0,
+) -> None:
+    text, keyboard, _ = await acts_page_payload(page)
+
+    payload = {
+        "chat_id": chat_id,
+        "text": text,
+        "parse_mode": "HTML",
+    }
+
+    if keyboard:
+        payload["reply_markup"] = keyboard
+
+    await telegram_api("sendMessage", payload)
+
+
+async def edit_recent_acts(
+    *,
+    chat_id: int,
+    message_id: int,
+    page: int,
+) -> None:
+    text, keyboard, _ = await acts_page_payload(page)
+
+    payload = {
+        "chat_id": chat_id,
+        "message_id": message_id,
+        "text": text,
+        "parse_mode": "HTML",
+    }
+
+    if keyboard:
+        payload["reply_markup"] = keyboard
+
+    await telegram_api("editMessageText", payload)
+
+
+async def send_acts_export(chat_id: int) -> None:
+    acts = await get_all_acts_for_export()
+
+    if not acts:
+        await send_text_message(
+            chat_id,
+            "📄 Актов пока нет — экспортировать нечего.",
+        )
+        return
+
+    workbook_bytes = build_acts_xlsx(
+        acts,
+        almaty_tz=ALMATY_TZ,
+    )
+
+    filename = (
+        "CarcityPRO_acts_"
+        + datetime.now(ALMATY_TZ).strftime("%Y-%m-%d_%H-%M")
+        + ".xlsx"
+    )
+
+    url = f"{TELEGRAM_API_URL}/sendDocument"
+
+    data = {
+        "chat_id": str(chat_id),
+        "caption": (
+            "📊 Экспорт всех актов CarcityPRO\n"
+            f"Актов: {len(acts)}"
+        ),
+    }
+
+    files = {
+        "document": (
+            filename,
+            workbook_bytes,
+            (
+                "application/vnd.openxmlformats-officedocument."
+                "spreadsheetml.sheet"
+            ),
+        )
+    }
+
+    async with httpx.AsyncClient(timeout=120.0) as client:
+        response = await client.post(
+            url,
+            data=data,
+            files=files,
+        )
+
+    if response.is_error:
+        detail = "Telegram не принял Excel-файл."
+
+        try:
+            telegram_error = response.json()
+            detail = telegram_error.get("description") or detail
+        except ValueError:
+            pass
+
+        raise RuntimeError(detail)
+
+
+async def send_users(chat_id: int) -> None:
+    rows = await get_top_users(limit=10)
+
+    if not rows:
+        await send_text_message(chat_id, "👥 Пользователей пока нет.")
+        return
+
+    parts = ["👥 <b>Пользователи CarcityPRO</b>"]
+
+    for index, row in enumerate(rows, start=1):
+        parts.append(
+            "\n"
+            f"<b>{index}. {escape(user_label(row))}</b>\n"
+            f"🚀 Запусков: {int(row['app_open_count'])}\n"
+            f"📄 Актов: {int(row['act_count'])}"
+        )
+
+    await send_text_message(chat_id, "\n".join(parts))
 
 
 async def send_pdf_to_telegram(
@@ -276,6 +672,24 @@ async def health() -> dict:
     return {
         "status": "ok",
         "service": "CarcityPRO PDF API",
+        "database": "enabled" if database_enabled() else "disabled",
+    }
+
+
+@app.post("/api/app-open")
+async def app_open(payload: AppOpenRequest) -> dict:
+    telegram = validate_telegram_init_data(payload.init_data)
+
+    tracked = False
+
+    try:
+        tracked = await track_app_open(telegram["user"])
+    except Exception as error:
+        print(f"WARNING: app_open analytics failed: {error}")
+
+    return {
+        "ok": True,
+        "tracked": tracked,
     }
 
 
@@ -293,23 +707,113 @@ async def telegram_webhook(request: Request) -> dict:
         )
 
     update = await request.json()
+    callback_query = update.get("callback_query") or {}
+
+    if callback_query:
+        callback_id = str(callback_query.get("id") or "")
+        callback_user = callback_query.get("from") or {}
+        callback_data = str(callback_query.get("data") or "")
+        callback_message = callback_query.get("message") or {}
+        callback_chat = callback_message.get("chat") or {}
+
+        if callback_id:
+            try:
+                await telegram_api(
+                    "answerCallbackQuery",
+                    {
+                        "callback_query_id": callback_id,
+                    },
+                )
+            except Exception as error:
+                print(f"WARNING: answerCallbackQuery failed: {error}")
+
+        user_id = int(callback_user.get("id") or 0)
+
+        if not is_admin(user_id):
+            return {"ok": True}
+
+        if callback_data == "acts_noop":
+            return {"ok": True}
+
+        if callback_data.startswith("acts_page:"):
+            try:
+                page = int(callback_data.split(":", 1)[1])
+                chat_id = int(callback_chat["id"])
+                message_id = int(callback_message["message_id"])
+
+                await edit_recent_acts(
+                    chat_id=chat_id,
+                    message_id=message_id,
+                    page=page,
+                )
+            except Exception as error:
+                print(f"ERROR: acts pagination failed: {error}")
+
+        return {"ok": True}
+
     message = update.get("message") or {}
     chat = message.get("chat") or {}
+    from_user = message.get("from") or {}
     text = str(message.get("text") or "").strip()
+    chat_id = chat.get("id")
 
-    if (
-        text.startswith("/start")
-        and chat.get("type") == "private"
-        and chat.get("id")
-    ):
-        try:
-            await send_start_message(int(chat["id"]))
-        except Exception as error:
-            print(f"ERROR: /start reply failed: {error}")
-            raise HTTPException(
-                status_code=502,
-                detail="Не удалось отправить сообщение Telegram.",
-            ) from error
+    if chat.get("type") != "private" or not chat_id:
+        return {"ok": True}
+
+    try:
+        if from_user.get("id"):
+            await touch_user(from_user)
+    except Exception as error:
+        print(f"WARNING: touch_user failed: {error}")
+
+    user_id = int(from_user.get("id") or 0)
+
+    try:
+        if text.startswith("/start"):
+            await send_start_message(int(chat_id))
+
+        elif text.startswith("/myid"):
+            await send_text_message(
+                int(chat_id),
+                (
+                    "🪪 Ваш Telegram ID:\n"
+                    f"<code>{user_id}</code>"
+                ),
+            )
+
+        elif text.startswith("/stats"):
+            if not is_admin(user_id):
+                await send_text_message(int(chat_id), "Нет доступа.")
+            else:
+                await send_admin_stats(int(chat_id))
+
+        elif text.startswith("/export_acts"):
+            if not is_admin(user_id):
+                await send_text_message(int(chat_id), "Нет доступа.")
+            else:
+                await send_acts_export(int(chat_id))
+
+        elif text.startswith("/acts"):
+            if not is_admin(user_id):
+                await send_text_message(int(chat_id), "Нет доступа.")
+            else:
+                await send_recent_acts(
+                    int(chat_id),
+                    page=0,
+                )
+
+        elif text.startswith("/users"):
+            if not is_admin(user_id):
+                await send_text_message(int(chat_id), "Нет доступа.")
+            else:
+                await send_users(int(chat_id))
+
+    except Exception as error:
+        print(f"ERROR: Telegram command failed: {error}")
+        await send_text_message(
+            int(chat_id),
+            "Не удалось выполнить команду. Попробуйте чуть позже.",
+        )
 
     return {"ok": True}
 
@@ -318,8 +822,10 @@ async def telegram_webhook(request: Request) -> dict:
 async def generate_act(payload: GenerateActRequest) -> dict:
     telegram = validate_telegram_init_data(payload.init_data)
 
-    act_number = datetime.now(ALMATY_TZ).strftime(
-        "%Y%m%d-%H%M%S"
+    act_number = (
+        datetime.now(ALMATY_TZ).strftime("%Y%m%d-%H%M%S")
+        + "-"
+        + secrets.token_hex(2).upper()
     )
 
     items = [
@@ -347,8 +853,23 @@ async def generate_act(payload: GenerateActRequest) -> dict:
         item_count=len(items),
     )
 
+    stored = False
+
+    try:
+        stored = await record_sent_act(
+            user=telegram["user"],
+            act_number=act_number,
+            sto=payload.sto.strip(),
+            master=payload.master.strip(),
+            car=payload.car.strip(),
+            items=items,
+        )
+    except Exception as error:
+        print(f"WARNING: act analytics failed: {error}")
+
     return {
         "ok": True,
         "act_number": act_number,
         "items_count": len(items),
+        "stored": stored,
     }

@@ -9,3 +9,18 @@ services:
     envVars:
       - key: BOT_TOKEN
         sync: false
+      - key: ADMIN_TELEGRAM_ID
+        sync: false
+      - key: DB_STORAGE_LIMIT_GB
+        value: "1"
+      - key: DATABASE_URL
+        fromDatabase:
+          name: carcitypro-db
+          property: connectionString
+
+databases:
+  - name: carcitypro-db
+    plan: free
+    databaseName: carcitypro
+    user: carcitypro_user
+    ipAllowList: []
