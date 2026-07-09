@@ -5,6 +5,9 @@ import hmac
 import json
 import os
 import time
+
+from datetime import datetime
+from zoneinfo import ZoneInfo
 from urllib.parse import parse_qsl
 
 import httpx
@@ -14,6 +17,7 @@ from pydantic import BaseModel, Field
 
 from pdf_generator import generate_act_pdf
 
+ALMATY_TZ = ZoneInfo("Asia/Almaty")
 
 GITHUB_PAGES_ORIGIN = "https://dubovetsdaryaa.github.io"
 MAX_INIT_DATA_AGE_SECONDS = 24 * 60 * 60
@@ -167,7 +171,7 @@ async def health() -> dict:
 async def generate_act(payload: GenerateActRequest) -> dict:
     telegram = validate_telegram_init_data(payload.init_data)
 
-    act_number = time.strftime("%Y%m%d-%H%M%S")
+    act_number = datetime.now(ALMATY_TZ).strftime("%Y%m%d-%H%M%S")
     items = [item.model_dump() for item in payload.items]
     pdf_bytes = generate_act_pdf(
         items=items,
