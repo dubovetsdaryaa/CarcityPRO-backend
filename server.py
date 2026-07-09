@@ -165,6 +165,80 @@ async def send_text_message(
     await telegram_api("sendMessage", payload)
 
 
+async def configure_bot_commands() -> None:
+    public_commands = [
+        {
+            "command": "start",
+            "description": "Открыть CarcityPRO",
+        },
+        {
+            "command": "help",
+            "description": "Показать список команд",
+        },
+        {
+            "command": "myid",
+            "description": "Узнать свой Telegram ID",
+        },
+    ]
+
+    admin_commands = public_commands + [
+        {
+            "command": "stats",
+            "description": "Статистика приложения и базы",
+        },
+        {
+            "command": "acts",
+            "description": "Просмотр всех актов",
+        },
+        {
+            "command": "users",
+            "description": "Пользователи CarcityPRO",
+        },
+        {
+            "command": "export_acts",
+            "description": "Выгрузить все акты в Excel",
+        },
+    ]
+
+    try:
+        await telegram_api(
+            "setMyCommands",
+            {
+                "commands": public_commands,
+                "scope": {
+                    "type": "default",
+                },
+            },
+        )
+
+        await telegram_api(
+            "setChatMenuButton",
+            {
+                "menu_button": {
+                    "type": "commands",
+                },
+            },
+        )
+
+        if ADMIN_TELEGRAM_ID:
+            await telegram_api(
+                "setMyCommands",
+                {
+                    "commands": admin_commands,
+                    "scope": {
+                        "type": "chat",
+                        "chat_id": ADMIN_TELEGRAM_ID,
+                    },
+                },
+            )
+
+        print("Telegram bot commands configured.")
+    except Exception as error:
+        print(
+            f"WARNING: Telegram bot commands setup failed: {error}"
+        )
+
+
 async def configure_telegram_webhook() -> None:
     webhook_url = f"{PUBLIC_BASE_URL}{WEBHOOK_PATH}"
 
@@ -186,6 +260,7 @@ async def configure_telegram_webhook() -> None:
 async def lifespan(app: FastAPI):
     await init_database()
     await configure_telegram_webhook()
+    await configure_bot_commands()
     yield
 
 
@@ -356,6 +431,30 @@ async def send_start_message(chat_id: int) -> None:
             },
         },
     )
+
+
+async def send_commands_message(
+    chat_id: int,
+    user_id: int,
+) -> None:
+    text = (
+        "🤖 <b>Команды CarcityPRO</b>\n\n"
+        "<b>Основные команды:</b>\n"
+        "/start — открыть CarcityPRO\n"
+        "/help — показать список команд\n"
+        "/myid — узнать свой Telegram ID"
+    )
+
+    if is_admin(user_id):
+        text += (
+            "\n\n<b>Команды администратора:</b>\n"
+            "/stats — статистика приложения и размер базы\n"
+            "/acts — просмотр всех актов\n"
+            "/users — пользователи CarcityPRO\n"
+            "/export_acts — выгрузить все акты в Excel"
+        )
+
+    await send_text_message(chat_id, text)
 
 
 async def send_admin_stats(chat_id: int) -> None:
@@ -779,6 +878,15 @@ async def telegram_webhook(request: Request) -> dict:
                     "🪪 Ваш Telegram ID:\n"
                     f"<code>{user_id}</code>"
                 ),
+            )
+
+        elif (
+            text.startswith("/help")
+            or text.startswith("/commands")
+        ):
+            await send_commands_message(
+                int(chat_id),
+                user_id,
             )
 
         elif text.startswith("/stats"):
