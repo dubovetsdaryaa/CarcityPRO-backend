@@ -217,6 +217,23 @@ def generate_act_pdf(
         textColor=GREEN,
     )
 
+    marketplace_text_style = ParagraphStyle(
+        "MarketplaceText",
+        parent=cell_style,
+        fontSize=9.5,
+        leading=13,
+        textColor=TEXT,
+        spaceAfter=3,
+    )
+
+    marketplace_link_style = ParagraphStyle(
+        "MarketplaceLink",
+        parent=cell_bold_style,
+        fontSize=9.5,
+        leading=13,
+        textColor=GREEN,
+    )
+
     footer_style = ParagraphStyle(
         "Footer",
         parent=styles["Normal"],
@@ -266,6 +283,7 @@ def generate_act_pdf(
     parts_total = Decimal(0)
     services_total = Decimal(0)
     has_price = False
+    has_parts = False
 
     for (type_name, group_name), group_items in grouped_items.items():
         category_rows.append(len(table_data))
@@ -281,6 +299,9 @@ def generate_act_pdf(
         )
 
         for item in group_items:
+            if str(item.get("mode") or "") == "parts":
+                has_parts = True
+
             item_name = escape(str(item.get("item") or "-"))
             position = escape(str(item.get("position") or "-"))
             quantity = escape(str(item.get("quantity") or "-"))
@@ -420,6 +441,55 @@ def generate_act_pdf(
             [
                 Spacer(1, 5 * mm),
                 summary_table,
+            ]
+        )
+
+    if has_parts:
+        marketplace_url = (
+            "https://carcity.kz/category/avtozapcasti"
+        )
+
+        marketplace_box = Table(
+            [
+                [
+                    [
+                        Paragraph(
+                            "Необходимые запасные части можно приобрести "
+                            "на маркетплейсе Carcity.kz.",
+                            marketplace_text_style,
+                        ),
+                        Paragraph(
+                            f'<link href="{marketplace_url}" '
+                            'color="#007C5A">'
+                            "Перейти к каталогу автозапчастей →"
+                            "</link>",
+                            marketplace_link_style,
+                        ),
+                    ]
+                ]
+            ],
+            colWidths=[176 * mm],
+            hAlign="LEFT",
+        )
+
+        marketplace_box.setStyle(
+            TableStyle(
+                [
+                    ("BACKGROUND", (0, 0), (-1, -1), SOFT_GREEN),
+                    ("BOX", (0, 0), (-1, -1), 0.65, LINE),
+                    ("LEFTPADDING", (0, 0), (-1, -1), 9),
+                    ("RIGHTPADDING", (0, 0), (-1, -1), 9),
+                    ("TOPPADDING", (0, 0), (-1, -1), 8),
+                    ("BOTTOMPADDING", (0, 0), (-1, -1), 8),
+                    ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+                ]
+            )
+        )
+
+        story.extend(
+            [
+                Spacer(1, 5 * mm),
+                marketplace_box,
             ]
         )
 
