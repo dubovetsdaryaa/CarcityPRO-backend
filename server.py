@@ -108,6 +108,8 @@ class ActItem(BaseModel):
     group: str = Field(min_length=1, max_length=200)
     item: str = Field(min_length=1, max_length=300)
     position: str | None = Field(default=None, max_length=200)
+    quantity: str = Field(default="", max_length=30)
+    price: str = Field(default="", max_length=50)
 
 
 class AppOpenRequest(BaseModel):

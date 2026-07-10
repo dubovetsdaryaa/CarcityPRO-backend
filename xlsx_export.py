@@ -104,6 +104,8 @@ def build_acts_xlsx(
             "Группа",
             "Позиция",
             "Расположение",
+            "Кол-во",
+            "Цена",
         ]
     ]
 
@@ -161,6 +163,8 @@ def build_acts_xlsx(
                     item.get("group") or "",
                     item.get("item") or "",
                     item.get("position") or "",
+                    item.get("quantity") or "",
+                    item.get("price") or "",
                 ]
             )
 
@@ -315,7 +319,7 @@ def build_acts_xlsx(
     )
     sheet2_xml = _sheet_xml(
         positions_rows,
-        widths=[28, 14, 18, 28, 35, 25],
+        widths=[28, 14, 18, 28, 35, 25, 14, 18],
     )
 
     buffer = BytesIO()

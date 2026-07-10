@@ -1,8 +1,8 @@
 from __future__ import annotations
 
 from datetime import datetime
+from xml.sax.saxutils import escape
 from zoneinfo import ZoneInfo
-from html import escape
 from io import BytesIO
 from pathlib import Path
 from typing import Iterable, Mapping
@@ -25,6 +25,7 @@ LINE = colors.HexColor("#DDE5E1")
 SOFT_GREEN = colors.HexColor("#F1F8F5")
 ALMATY_TZ = ZoneInfo("Asia/Almaty")
 
+
 def _first_existing(paths: Iterable[str]) -> str | None:
     for value in paths:
         path = Path(value)
@@ -39,8 +40,6 @@ def register_fonts() -> tuple[str, str]:
             r"C:\Windows\Fonts\arial.ttf",
             r"C:\Windows\Fonts\segoeui.ttf",
             "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
-            "/usr/share/fonts/dejavu/DejaVuSans.ttf",
-            "/usr/share/fonts/truetype/liberation2/LiberationSans-Regular.ttf",
         ]
     )
     bold = _first_existing(
@@ -48,8 +47,6 @@ def register_fonts() -> tuple[str, str]:
             r"C:\Windows\Fonts\arialbd.ttf",
             r"C:\Windows\Fonts\segoeuib.ttf",
             "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf",
-            "/usr/share/fonts/dejavu/DejaVuSans-Bold.ttf",
-            "/usr/share/fonts/truetype/liberation2/LiberationSans-Bold.ttf",
         ]
     )
 
@@ -72,14 +69,9 @@ def generate_act_pdf(
     regular_font, bold_font = register_fonts()
 
     act_info = act_info or {}
-
-    def safe(value: object, fallback: str = "—") -> str:
-        text = str(value or fallback)
-        return escape(text)
-
-    sto = safe(act_info.get("sto"))
-    master = safe(act_info.get("master"))
-    car = safe(act_info.get("car"))
+    sto = escape(str(act_info.get("sto") or "-"))
+    master = escape(str(act_info.get("master") or "-"))
+    car = escape(str(act_info.get("car") or "-"))
 
     buffer = BytesIO()
     doc = SimpleDocTemplate(
@@ -147,7 +139,7 @@ def generate_act_pdf(
         parent=cell_bold_style,
         textColor=colors.white,
     )
-    
+
     footer_style = ParagraphStyle(
         "Footer",
         parent=styles["Normal"],
@@ -177,15 +169,19 @@ def generate_act_pdf(
             Paragraph("Категория", header_style),
             Paragraph("Позиция", header_style),
             Paragraph("Расположение", header_style),
+            Paragraph("Кол-во", header_style),
+            Paragraph("Цена, ₸", header_style),
         ]
     ]
 
     for index, item in enumerate(items, start=1):
         mode = str(item.get("mode") or "")
         type_name = "Автозапчасть" if mode == "parts" else "Услуга СТО"
-        group = safe(item.get("group"))
-        item_name = safe(item.get("item"))
-        position = safe(item.get("position"))
+        group = escape(str(item.get("group") or "-"))
+        item_name = escape(str(item.get("item") or "-"))
+        position = escape(str(item.get("position") or "-"))
+        quantity = escape(str(item.get("quantity") or "-"))
+        price = escape(str(item.get("price") or "-"))
 
         table_data.append(
             [
@@ -194,12 +190,14 @@ def generate_act_pdf(
                 Paragraph(group, cell_style),
                 Paragraph(item_name, cell_bold_style),
                 Paragraph(position, cell_style),
+                Paragraph(quantity, cell_style),
+                Paragraph(price, cell_style),
             ]
         )
 
     table = Table(
         table_data,
-        colWidths=[10 * mm, 28 * mm, 42 * mm, 61 * mm, 35 * mm],
+        colWidths=[8 * mm, 23 * mm, 33 * mm, 44 * mm, 31 * mm, 15 * mm, 22 * mm],
         repeatRows=1,
         hAlign="LEFT",
     )
