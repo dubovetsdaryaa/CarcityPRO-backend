@@ -219,18 +219,18 @@ def generate_act_pdf(
 
     marketplace_text_style = ParagraphStyle(
         "MarketplaceText",
-        parent=cell_style,
+        parent=cell_bold_style,
         fontSize=9.5,
         leading=13,
         textColor=TEXT,
-        spaceAfter=3,
+        spaceAfter=4,
     )
 
     marketplace_link_style = ParagraphStyle(
         "MarketplaceLink",
         parent=cell_bold_style,
-        fontSize=9.5,
-        leading=13,
+        fontSize=11.5,
+        leading=14.5,
         textColor=GREEN,
     )
 
