@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 from datetime import datetime
+from decimal import Decimal
+import re
 from xml.sax.saxutils import escape
 from zoneinfo import ZoneInfo
 from io import BytesIO
@@ -59,6 +61,48 @@ def register_fonts() -> tuple[str, str]:
     pdfmetrics.registerFont(TTFont("CarcityRegular", regular))
     pdfmetrics.registerFont(TTFont("CarcityBold", bold))
     return "CarcityRegular", "CarcityBold"
+
+
+
+def _parse_price(value: object) -> Decimal | None:
+    """Parse a whole-tenge price from a user-entered string."""
+    raw = str(value or "").strip()
+
+    if not raw:
+        return None
+
+    digits = re.sub(r"[^\d]", "", raw)
+
+    if not digits:
+        return None
+
+    return Decimal(digits)
+
+
+def _parse_quantity(value: object) -> Decimal:
+    """Parse quantity. Empty or invalid quantity means one unit."""
+    raw = str(value or "").strip()
+
+    if not raw:
+        return Decimal(1)
+
+    match = re.search(r"\d+(?:[.,]\d+)?", raw)
+
+    if not match:
+        return Decimal(1)
+
+    quantity = Decimal(
+        match.group(0).replace(",", ".")
+    )
+
+    if quantity < 0:
+        return Decimal(1)
+
+    return quantity
+
+
+def _format_money(value: Decimal) -> str:
+    return f"{int(value):,}".replace(",", " ") + " ₸"
 
 
 def generate_act_pdf(
@@ -137,7 +181,40 @@ def generate_act_pdf(
     header_style = ParagraphStyle(
         "Header",
         parent=cell_bold_style,
+        fontSize=8.5,
+        leading=10.5,
         textColor=colors.white,
+    )
+
+    category_style = ParagraphStyle(
+        "Category",
+        parent=cell_bold_style,
+        fontSize=9.5,
+        leading=12,
+        textColor=GREEN,
+    )
+
+    summary_label_style = ParagraphStyle(
+        "SummaryLabel",
+        parent=cell_style,
+        fontSize=9.5,
+        leading=12,
+        textColor=TEXT,
+    )
+
+    summary_value_style = ParagraphStyle(
+        "SummaryValue",
+        parent=summary_label_style,
+        fontName=bold_font,
+        alignment=TA_LEFT,
+    )
+
+    summary_total_style = ParagraphStyle(
+        "SummaryTotal",
+        parent=summary_value_style,
+        fontSize=10.5,
+        leading=13,
+        textColor=GREEN,
     )
 
     footer_style = ParagraphStyle(
@@ -166,7 +243,6 @@ def generate_act_pdf(
         [
             Paragraph("№", header_style),
             Paragraph("Тип", header_style),
-            Paragraph("Категория", header_style),
             Paragraph("Позиция", header_style),
             Paragraph("Расположение", header_style),
             Paragraph("Кол-во", header_style),
@@ -174,49 +250,106 @@ def generate_act_pdf(
         ]
     ]
 
-    for index, item in enumerate(items, start=1):
+    grouped_items: dict[tuple[str, str], list[Mapping[str, object]]] = {}
+
+    for item in items:
         mode = str(item.get("mode") or "")
         type_name = "Автозапчасть" if mode == "parts" else "Услуга СТО"
-        group = escape(str(item.get("group") or "-"))
-        item_name = escape(str(item.get("item") or "-"))
-        position = escape(str(item.get("position") or "-"))
-        quantity = escape(str(item.get("quantity") or "-"))
-        price = escape(str(item.get("price") or "-"))
+        group_name = str(item.get("group") or "-")
+        grouped_items.setdefault((type_name, group_name), []).append(item)
 
+    category_rows: list[int] = []
+    item_rows: list[int] = []
+    item_number = 1
+    alternating_index = 0
+
+    parts_total = Decimal(0)
+    services_total = Decimal(0)
+    has_price = False
+
+    for (type_name, group_name), group_items in grouped_items.items():
+        category_rows.append(len(table_data))
         table_data.append(
             [
-                Paragraph(str(index), cell_style),
-                Paragraph(type_name, cell_style),
-                Paragraph(group, cell_style),
-                Paragraph(item_name, cell_bold_style),
-                Paragraph(position, cell_style),
-                Paragraph(quantity, cell_style),
-                Paragraph(price, cell_style),
+                Paragraph(escape(group_name.upper()), category_style),
+                "",
+                "",
+                "",
+                "",
+                "",
             ]
         )
 
+        for item in group_items:
+            item_name = escape(str(item.get("item") or "-"))
+            position = escape(str(item.get("position") or "-"))
+            quantity = escape(str(item.get("quantity") or "-"))
+            price_text = escape(str(item.get("price") or "-"))
+            price_value = _parse_price(item.get("price"))
+            quantity_value = _parse_quantity(item.get("quantity"))
+
+            if price_value is not None:
+                has_price = True
+                line_total = quantity_value * price_value
+
+                if str(item.get("mode") or "") == "parts":
+                    parts_total += line_total
+                else:
+                    services_total += line_total
+
+            item_rows.append(len(table_data))
+            table_data.append(
+                [
+                    Paragraph(str(item_number), cell_style),
+                    Paragraph(type_name, cell_style),
+                    Paragraph(item_name, cell_bold_style),
+                    Paragraph(position, cell_style),
+                    Paragraph(quantity, cell_style),
+                    Paragraph(price_text, cell_style),
+                ]
+            )
+
+            item_number += 1
+            alternating_index += 1
+
     table = Table(
         table_data,
-        colWidths=[8 * mm, 23 * mm, 33 * mm, 44 * mm, 31 * mm, 15 * mm, 22 * mm],
+        colWidths=[8 * mm, 31 * mm, 45 * mm, 43 * mm, 20 * mm, 29 * mm],
         repeatRows=1,
         hAlign="LEFT",
     )
 
-    table.setStyle(
-        TableStyle(
+    table_style_commands = [
+        ("BACKGROUND", (0, 0), (-1, 0), GREEN),
+        ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
+        ("VALIGN", (0, 0), (-1, -1), "TOP"),
+        ("GRID", (0, 0), (-1, -1), 0.55, LINE),
+        ("LEFTPADDING", (0, 0), (-1, -1), 6),
+        ("RIGHTPADDING", (0, 0), (-1, -1), 6),
+        ("TOPPADDING", (0, 0), (-1, -1), 7),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 7),
+    ]
+
+    for row_index in category_rows:
+        table_style_commands.extend(
             [
-                ("BACKGROUND", (0, 0), (-1, 0), GREEN),
-                ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
-                ("VALIGN", (0, 0), (-1, -1), "TOP"),
-                ("GRID", (0, 0), (-1, -1), 0.55, LINE),
-                ("ROWBACKGROUNDS", (0, 1), (-1, -1), [colors.white, SOFT_GREEN]),
-                ("LEFTPADDING", (0, 0), (-1, -1), 6),
-                ("RIGHTPADDING", (0, 0), (-1, -1), 6),
-                ("TOPPADDING", (0, 0), (-1, -1), 7),
-                ("BOTTOMPADDING", (0, 0), (-1, -1), 7),
+                ("SPAN", (0, row_index), (-1, row_index)),
+                ("BACKGROUND", (0, row_index), (-1, row_index), SOFT_GREEN),
+                ("LINEABOVE", (0, row_index), (-1, row_index), 0.8, GREEN),
+                ("LINEBELOW", (0, row_index), (-1, row_index), 0.55, LINE),
+                ("TOPPADDING", (0, row_index), (-1, row_index), 6),
+                ("BOTTOMPADDING", (0, row_index), (-1, row_index), 6),
+                ("NOSPLIT", (0, row_index), (-1, min(row_index + 1, len(table_data) - 1))),
             ]
         )
-    )
+
+    for display_index, row_index in enumerate(item_rows):
+        background = colors.white if display_index % 2 == 0 else SOFT_GREEN
+        table_style_commands.append(
+            ("BACKGROUND", (0, row_index), (-1, row_index), background)
+        )
+
+    table.setStyle(TableStyle(table_style_commands))
 
     total_style = ParagraphStyle(
         "Total",
@@ -234,6 +367,64 @@ def generate_act_pdf(
                 f"<b>Всего выявлено позиций: {len(items)}</b>",
                 total_style,
             ),
+        ]
+    )
+
+    if has_price:
+        grand_total = parts_total + services_total
+
+        summary_data = [
+            [
+                Paragraph("ИТОГО (ОРИЕНТИРОВОЧНО)", header_style),
+                "",
+            ],
+            [
+                Paragraph("Запчасти", summary_label_style),
+                Paragraph(_format_money(parts_total), summary_value_style),
+            ],
+            [
+                Paragraph("Работа", summary_label_style),
+                Paragraph(_format_money(services_total), summary_value_style),
+            ],
+            [
+                Paragraph("<b>Общая сумма</b>", summary_total_style),
+                Paragraph(_format_money(grand_total), summary_total_style),
+            ],
+        ]
+
+        summary_table = Table(
+            summary_data,
+            colWidths=[116 * mm, 60 * mm],
+            hAlign="LEFT",
+        )
+        summary_table.setStyle(
+            TableStyle(
+                [
+                    ("SPAN", (0, 0), (-1, 0)),
+                    ("BACKGROUND", (0, 0), (-1, 0), GREEN),
+                    ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
+                    ("BACKGROUND", (0, 3), (-1, 3), SOFT_GREEN),
+                    ("BOX", (0, 0), (-1, -1), 0.65, LINE),
+                    ("INNERGRID", (0, 1), (-1, -1), 0.55, LINE),
+                    ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+                    ("ALIGN", (1, 1), (1, -1), "RIGHT"),
+                    ("LEFTPADDING", (0, 0), (-1, -1), 8),
+                    ("RIGHTPADDING", (0, 0), (-1, -1), 8),
+                    ("TOPPADDING", (0, 0), (-1, -1), 7),
+                    ("BOTTOMPADDING", (0, 0), (-1, -1), 7),
+                ]
+            )
+        )
+
+        story.extend(
+            [
+                Spacer(1, 5 * mm),
+                summary_table,
+            ]
+        )
+
+    story.extend(
+        [
             Spacer(1, 15 * mm),
             Table(
                 [
