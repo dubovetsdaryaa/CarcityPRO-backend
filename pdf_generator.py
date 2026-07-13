@@ -115,6 +115,7 @@ def generate_act_pdf(
     act_info = act_info or {}
     sto = escape(str(act_info.get("sto") or "-"))
     master = escape(str(act_info.get("master") or "-"))
+    master_phone = escape(str(act_info.get("master_phone") or "-"))
     car = escape(str(act_info.get("car") or "-"))
 
     buffer = BytesIO()
@@ -500,7 +501,11 @@ def generate_act_pdf(
                 [
                     [
                         Paragraph(f"<b>СТО:</b> {sto}", cell_style),
-                        Paragraph(f"<b>Мастер:</b> {master}", cell_style),
+                        Paragraph(
+                            f"<b>Мастер:</b> {master}<br/>"
+                            f"<b>Телефон мастера:</b> {master_phone}",
+                            cell_style,
+                        ),
                     ],
                     [
                         Paragraph(f"<b>Автомобиль:</b> {car}", cell_style),

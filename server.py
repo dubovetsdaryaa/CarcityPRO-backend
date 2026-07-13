@@ -120,6 +120,7 @@ class GenerateActRequest(BaseModel):
     init_data: str = Field(min_length=1)
     sto: str = Field(default="", max_length=150)
     master: str = Field(default="", max_length=150)
+    master_phone: str = Field(default="", max_length=50)
     car: str = Field(default="", max_length=200)
     items: list[ActItem] = Field(min_length=1, max_length=150)
 
@@ -949,6 +950,7 @@ async def generate_act(payload: GenerateActRequest) -> dict:
         act_info={
             "sto": payload.sto.strip(),
             "master": payload.master.strip(),
+            "master_phone": payload.master_phone.strip(),
             "car": payload.car.strip(),
         },
     )
@@ -971,6 +973,7 @@ async def generate_act(payload: GenerateActRequest) -> dict:
             act_number=act_number,
             sto=payload.sto.strip(),
             master=payload.master.strip(),
+            master_phone=payload.master_phone.strip(),
             car=payload.car.strip(),
             items=items,
         )

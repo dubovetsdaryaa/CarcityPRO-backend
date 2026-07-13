@@ -63,11 +63,16 @@ async def init_database(max_attempts: int = 20) -> bool:
             telegram_id BIGINT REFERENCES users(telegram_id) ON DELETE SET NULL,
             sto TEXT,
             master TEXT,
+            master_phone TEXT,
             car TEXT,
             items_count INTEGER NOT NULL,
             items JSONB NOT NULL,
             created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
         )
+        """,
+        """
+        ALTER TABLE acts
+        ADD COLUMN IF NOT EXISTS master_phone TEXT
         """,
         """
         CREATE INDEX IF NOT EXISTS idx_events_type_created_at
@@ -182,6 +187,7 @@ async def record_sent_act(
     act_number: str,
     sto: str,
     master: str,
+    master_phone: str,
     car: str,
     items: list[dict[str, Any]],
 ) -> bool:
@@ -198,11 +204,12 @@ async def record_sent_act(
                 telegram_id,
                 sto,
                 master,
+                master_phone,
                 car,
                 items_count,
                 items
             )
-            VALUES (%s, %s, %s, %s, %s, %s, %s)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
             ON CONFLICT (act_number) DO NOTHING
             """,
             (
@@ -210,6 +217,7 @@ async def record_sent_act(
                 telegram_id,
                 sto or None,
                 master or None,
+                master_phone or None,
                 car or None,
                 len(items),
                 Jsonb(items),
@@ -336,6 +344,7 @@ async def get_acts_page(
                 a.act_number,
                 a.sto,
                 a.master,
+                a.master_phone,
                 a.car,
                 a.items_count,
                 a.created_at,
@@ -368,6 +377,7 @@ async def get_all_acts_for_export() -> list[dict[str, Any]]:
                 a.act_number,
                 a.sto,
                 a.master,
+                a.master_phone,
                 a.car,
                 a.items_count,
                 a.items,

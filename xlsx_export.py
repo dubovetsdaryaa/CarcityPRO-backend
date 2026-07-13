@@ -91,6 +91,7 @@ def build_acts_xlsx(
             "Username",
             "СТО",
             "Мастер",
+            "Телефон мастера",
             "Автомобиль",
             "Количество позиций",
         ]
@@ -140,6 +141,7 @@ def build_acts_xlsx(
                 username,
                 act.get("sto") or "",
                 act.get("master") or "",
+                act.get("master_phone") or "",
                 act.get("car") or "",
                 act.get("items_count") or 0,
             ]
