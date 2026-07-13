@@ -247,8 +247,10 @@ def generate_act_pdf(
 
     now = datetime.now(ALMATY_TZ)
 
+    brand_name = sto if sto != "-" else "CarcityPRO"
+
     story = [
-        Paragraph("CarcityPRO", brand_style),
+        Paragraph(brand_name, brand_style),
         Paragraph("АКТ ДЕФЕКТОВКИ", title_style),
         Paragraph(
             f"Акт № {act_number}<br/>Дата формирования: {now:%d.%m.%Y %H:%M}",
