@@ -65,6 +65,7 @@ async def init_database(max_attempts: int = 20) -> bool:
             master TEXT,
             master_phone TEXT,
             car TEXT,
+            comment TEXT,
             items_count INTEGER NOT NULL,
             items JSONB NOT NULL,
             created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
@@ -73,6 +74,10 @@ async def init_database(max_attempts: int = 20) -> bool:
         """
         ALTER TABLE acts
         ADD COLUMN IF NOT EXISTS master_phone TEXT
+        """,
+        """
+        ALTER TABLE acts
+        ADD COLUMN IF NOT EXISTS comment TEXT
         """,
         """
         CREATE INDEX IF NOT EXISTS idx_events_type_created_at
@@ -189,6 +194,7 @@ async def record_sent_act(
     master: str,
     master_phone: str,
     car: str,
+    comment: str,
     items: list[dict[str, Any]],
 ) -> bool:
     if not database_enabled():
@@ -206,10 +212,11 @@ async def record_sent_act(
                 master,
                 master_phone,
                 car,
+                comment,
                 items_count,
                 items
             )
-            VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
             ON CONFLICT (act_number) DO NOTHING
             """,
             (
@@ -219,6 +226,7 @@ async def record_sent_act(
                 master or None,
                 master_phone or None,
                 car or None,
+                comment or None,
                 len(items),
                 Jsonb(items),
             ),
@@ -346,6 +354,7 @@ async def get_acts_page(
                 a.master,
                 a.master_phone,
                 a.car,
+                a.comment,
                 a.items_count,
                 a.created_at,
                 u.telegram_id,
@@ -379,6 +388,7 @@ async def get_all_acts_for_export() -> list[dict[str, Any]]:
                 a.master,
                 a.master_phone,
                 a.car,
+                a.comment,
                 a.items_count,
                 a.items,
                 a.created_at,

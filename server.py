@@ -122,6 +122,7 @@ class GenerateActRequest(BaseModel):
     master: str = Field(default="", max_length=150)
     master_phone: str = Field(default="", max_length=50)
     car: str = Field(default="", max_length=200)
+    comment: str = Field(default="", max_length=2000)
     items: list[ActItem] = Field(min_length=1, max_length=150)
 
 
@@ -952,6 +953,7 @@ async def generate_act(payload: GenerateActRequest) -> dict:
             "master": payload.master.strip(),
             "master_phone": payload.master_phone.strip(),
             "car": payload.car.strip(),
+            "comment": payload.comment.strip(),
         },
     )
 
@@ -975,6 +977,7 @@ async def generate_act(payload: GenerateActRequest) -> dict:
             master=payload.master.strip(),
             master_phone=payload.master_phone.strip(),
             car=payload.car.strip(),
+            comment=payload.comment.strip(),
             items=items,
         )
     except Exception as error:

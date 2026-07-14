@@ -117,6 +117,8 @@ def generate_act_pdf(
     master = escape(str(act_info.get("master") or "-"))
     master_phone = escape(str(act_info.get("master_phone") or "-"))
     car = escape(str(act_info.get("car") or "-"))
+    comment = str(act_info.get("comment") or "").strip()
+    escaped_comment = escape(comment).replace("\n", "<br/>")
 
     buffer = BytesIO()
     doc = SimpleDocTemplate(
@@ -233,6 +235,22 @@ def generate_act_pdf(
         fontSize=11.5,
         leading=14.5,
         textColor=GREEN,
+    )
+
+    comment_title_style = ParagraphStyle(
+        "CommentTitle",
+        parent=cell_bold_style,
+        fontSize=10,
+        leading=13,
+        textColor=GREEN,
+    )
+
+    comment_text_style = ParagraphStyle(
+        "CommentText",
+        parent=cell_style,
+        fontSize=9.5,
+        leading=13,
+        textColor=TEXT,
     )
 
     footer_style = ParagraphStyle(
@@ -393,6 +411,41 @@ def generate_act_pdf(
             ),
         ]
     )
+
+    if comment:
+        comment_box = Table(
+            [
+                [
+                    [
+                        Paragraph("Комментарий мастера", comment_title_style),
+                        Paragraph(escaped_comment, comment_text_style),
+                    ]
+                ]
+            ],
+            colWidths=[176 * mm],
+            hAlign="LEFT",
+        )
+
+        comment_box.setStyle(
+            TableStyle(
+                [
+                    ("BACKGROUND", (0, 0), (-1, -1), SOFT_GREEN),
+                    ("BOX", (0, 0), (-1, -1), 0.65, LINE),
+                    ("LEFTPADDING", (0, 0), (-1, -1), 9),
+                    ("RIGHTPADDING", (0, 0), (-1, -1), 9),
+                    ("TOPPADDING", (0, 0), (-1, -1), 8),
+                    ("BOTTOMPADDING", (0, 0), (-1, -1), 8),
+                    ("VALIGN", (0, 0), (-1, -1), "TOP"),
+                ]
+            )
+        )
+
+        story.extend(
+            [
+                Spacer(1, 5 * mm),
+                comment_box,
+            ]
+        )
 
     if has_price:
         grand_total = parts_total + services_total
