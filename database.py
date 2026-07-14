@@ -65,6 +65,10 @@ async def init_database(max_attempts: int = 20) -> bool:
             master TEXT,
             master_phone TEXT,
             car TEXT,
+            car_brand TEXT,
+            car_model TEXT,
+            car_year TEXT,
+            mileage TEXT,
             comment TEXT,
             items_count INTEGER NOT NULL,
             items JSONB NOT NULL,
@@ -78,6 +82,22 @@ async def init_database(max_attempts: int = 20) -> bool:
         """
         ALTER TABLE acts
         ADD COLUMN IF NOT EXISTS comment TEXT
+        """,
+        """
+        ALTER TABLE acts
+        ADD COLUMN IF NOT EXISTS car_brand TEXT
+        """,
+        """
+        ALTER TABLE acts
+        ADD COLUMN IF NOT EXISTS car_model TEXT
+        """,
+        """
+        ALTER TABLE acts
+        ADD COLUMN IF NOT EXISTS car_year TEXT
+        """,
+        """
+        ALTER TABLE acts
+        ADD COLUMN IF NOT EXISTS mileage TEXT
         """,
         """
         CREATE INDEX IF NOT EXISTS idx_events_type_created_at
@@ -194,6 +214,10 @@ async def record_sent_act(
     master: str,
     master_phone: str,
     car: str,
+    car_brand: str,
+    car_model: str,
+    car_year: str,
+    mileage: str,
     comment: str,
     items: list[dict[str, Any]],
 ) -> bool:
@@ -212,11 +236,15 @@ async def record_sent_act(
                 master,
                 master_phone,
                 car,
+                car_brand,
+                car_model,
+                car_year,
+                mileage,
                 comment,
                 items_count,
                 items
             )
-            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
             ON CONFLICT (act_number) DO NOTHING
             """,
             (
@@ -226,6 +254,10 @@ async def record_sent_act(
                 master or None,
                 master_phone or None,
                 car or None,
+                car_brand or None,
+                car_model or None,
+                car_year or None,
+                mileage or None,
                 comment or None,
                 len(items),
                 Jsonb(items),
@@ -354,6 +386,10 @@ async def get_acts_page(
                 a.master,
                 a.master_phone,
                 a.car,
+                a.car_brand,
+                a.car_model,
+                a.car_year,
+                a.mileage,
                 a.comment,
                 a.items_count,
                 a.created_at,
@@ -388,6 +424,10 @@ async def get_all_acts_for_export() -> list[dict[str, Any]]:
                 a.master,
                 a.master_phone,
                 a.car,
+                a.car_brand,
+                a.car_model,
+                a.car_year,
+                a.mileage,
                 a.comment,
                 a.items_count,
                 a.items,

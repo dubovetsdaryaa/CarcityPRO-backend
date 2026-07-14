@@ -93,6 +93,10 @@ def build_acts_xlsx(
             "Мастер",
             "Телефон мастера",
             "Автомобиль",
+            "Марка",
+            "Модель",
+            "Год",
+            "Пробег",
             "Комментарий мастера",
             "Количество позиций",
         ]
@@ -144,6 +148,10 @@ def build_acts_xlsx(
                 act.get("master") or "",
                 act.get("master_phone") or "",
                 act.get("car") or "",
+                act.get("car_brand") or "",
+                act.get("car_model") or "",
+                act.get("car_year") or "",
+                act.get("mileage") or "",
                 act.get("comment") or "",
                 act.get("items_count") or 0,
             ]

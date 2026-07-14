@@ -105,6 +105,16 @@ def _format_money(value: Decimal) -> str:
     return f"{int(value):,}".replace(",", " ") + " ₸"
 
 
+def _format_mileage(value: object) -> str:
+    raw = str(value or "").strip()
+    digits = re.sub(r"[^\d]", "", raw)
+
+    if not digits:
+        return ""
+
+    return f"{int(digits):,}".replace(",", " ") + " км"
+
+
 def generate_act_pdf(
     items: list[Mapping[str, object]],
     act_number: str,
@@ -116,7 +126,26 @@ def generate_act_pdf(
     sto = escape(str(act_info.get("sto") or "-"))
     master = escape(str(act_info.get("master") or "-"))
     master_phone = escape(str(act_info.get("master_phone") or "-"))
-    car = escape(str(act_info.get("car") or "-"))
+
+    car_brand_raw = str(act_info.get("car_brand") or "").strip()
+    car_model_raw = str(act_info.get("car_model") or "").strip()
+    car_year_raw = str(act_info.get("car_year") or "").strip()
+    mileage_raw = str(act_info.get("mileage") or "").strip()
+
+    car_value = " ".join(
+        part
+        for part in [car_brand_raw, car_model_raw]
+        if part
+    ).strip()
+
+    if car_year_raw:
+        car_value = f"{car_value}, {car_year_raw}" if car_value else car_year_raw
+
+    if not car_value:
+        car_value = str(act_info.get("car") or "-").strip() or "-"
+
+    car = escape(car_value)
+    mileage = escape(_format_mileage(mileage_raw))
     comment = str(act_info.get("comment") or "").strip()
     escaped_comment = escape(comment).replace("\n", "<br/>")
 
@@ -563,7 +592,15 @@ def generate_act_pdf(
                         ),
                     ],
                     [
-                        Paragraph(f"<b>Автомобиль:</b> {car}", cell_style),
+                        Paragraph(
+                            f"<b>Автомобиль:</b> {car}"
+                            + (
+                                f"<br/><b>Пробег:</b> {mileage}"
+                                if mileage
+                                else ""
+                            ),
+                            cell_style,
+                        ),
                         Paragraph("Подпись: _______________________________", cell_style),
                     ],
                 ],
