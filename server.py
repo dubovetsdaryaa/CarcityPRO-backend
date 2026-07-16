@@ -4,6 +4,7 @@ import hashlib
 import hmac
 import json
 import os
+import base64
 import secrets
 import time
 from contextlib import asynccontextmanager
@@ -121,6 +122,12 @@ class ActItem(BaseModel):
 
 class AppOpenRequest(BaseModel):
     init_data: str = Field(min_length=1)
+
+
+class VoiceTranscribeRequest(BaseModel):
+    init_data: str = Field(min_length=1)
+    audio_base64: str = Field(min_length=1)
+    content_type: str = Field(default="audio/webm", max_length=120)
 
 
 class GenerateActRequest(BaseModel):
@@ -1015,28 +1022,21 @@ async def telegram_webhook(request: Request) -> dict:
 
 
 @app.post("/api/voice-transcribe")
-async def voice_transcribe(request: Request) -> dict:
-    form = await request.form()
+async def voice_transcribe(payload: VoiceTranscribeRequest) -> dict:
+    validate_telegram_init_data(payload.init_data)
 
-    init_data = str(form.get("init_data") or "").strip()
+    raw_base64 = payload.audio_base64.strip()
 
-    if not init_data:
-        raise HTTPException(
-            status_code=403,
-            detail="Telegram init data is required.",
-        )
+    if "," in raw_base64:
+        raw_base64 = raw_base64.split(",", 1)[1]
 
-    validate_telegram_init_data(init_data)
-
-    audio_upload = form.get("audio")
-
-    if audio_upload is None or not hasattr(audio_upload, "read"):
+    try:
+        audio_bytes = base64.b64decode(raw_base64, validate=True)
+    except Exception:
         raise HTTPException(
             status_code=400,
-            detail="Audio file is missing.",
+            detail="Audio base64 is invalid.",
         )
-
-    audio_bytes = await audio_upload.read()
 
     if not audio_bytes:
         raise HTTPException(
@@ -1050,15 +1050,9 @@ async def voice_transcribe(request: Request) -> dict:
             detail="Audio is too large. Please record a shorter voice note.",
         )
 
-    content_type = str(
-        form.get("content_type")
-        or getattr(audio_upload, "content_type", "")
-        or "audio/webm"
-    )
-
     text = await transcribe_audio_with_hf(
         audio_bytes=audio_bytes,
-        content_type=content_type,
+        content_type=payload.content_type or "audio/webm",
     )
 
     return {
