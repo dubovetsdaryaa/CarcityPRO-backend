@@ -1858,6 +1858,24 @@
         .filter(token => token.length > 2);
     }
 
+    function voiceIgnoredRoots() {
+      return new Set([
+        "передн", "перед", "задн", "зад", "лев", "прав",
+        "верхн", "верх", "нижн", "ниж", "слева", "справа",
+        "замен", "помен", "постав", "нужн", "над", "одн",
+        "дв", "три", "четыр", "пять", "штук", "шт",
+        "детал", "запчаст", "запчасти", "запчасть", "услуг",
+        "есть", "ищи", "найд", "добав", "можн", "пожалуйста"
+      ]);
+    }
+
+    function meaningfulVoiceRoots(text) {
+      const ignored = voiceIgnoredRoots();
+
+      return [...new Set(voiceTokenRoots(text))]
+        .filter(token => !ignored.has(token));
+    }
+
     function splitVoiceText(text) {
       return cleanVoiceTranscript(text)
         .toLocaleLowerCase("ru")
@@ -1877,12 +1895,7 @@
         .map(term => normalizeSearch(term))
         .filter(Boolean);
 
-      const ignoredRoots = new Set([
-        "передн", "перед", "задн", "зад", "лев", "прав",
-        "верхн", "верх", "нижн", "ниж", "слева", "справа",
-        "замен", "помен", "постав", "нужн", "над", "одн",
-        "дв", "три", "четыр", "пять", "штук", "шт"
-      ]);
+      const ignoredRoots = voiceIgnoredRoots();
 
       const segmentRoots = [...new Set(voiceTokenRoots(segment))]
         .filter(token => !ignoredRoots.has(token));
@@ -2144,13 +2157,174 @@
       ].join("|");
     }
 
+    function voicePartialSpan(segment, title, group = "") {
+      const segmentRoots = meaningfulVoiceRoots(segment);
+      const titleRoots = meaningfulVoiceRoots(`${title} ${group}`);
+
+      if (!segmentRoots.length || !titleRoots.length) {
+        return null;
+      }
+
+      const positions = [];
+
+      segmentRoots.forEach(root => {
+        const index = titleRoots.findIndex(token => (
+          token === root
+          || token.includes(root)
+          || root.includes(token)
+        ));
+
+        if (index >= 0) {
+          positions.push(index);
+        }
+      });
+
+      if (!positions.length) {
+        return null;
+      }
+
+      return {
+        start: 0,
+        end: Math.max(0, segmentRoots.length - 1),
+        length: positions.length
+      };
+    }
+
+    function voicePartialSearchMatches(segment, mode) {
+      const queryRoots = meaningfulVoiceRoots(segment);
+
+      if (!queryRoots.length) {
+        return [];
+      }
+
+      const source = mode === "parts" ? (data.parts || {}) : (data.services || {});
+      const results = [];
+
+      for (const [group, items] of Object.entries(source)) {
+        for (const [title] of items) {
+          const haystack = searchableText(title, group);
+          const haystackRoots = new Set(meaningfulVoiceRoots(haystack));
+          const titleRoots = meaningfulVoiceRoots(title);
+
+          const rootMatches = queryRoots.filter(root => {
+            if (haystackRoots.has(root)) return true;
+
+            return [...haystackRoots].some(token => (
+              token.includes(root)
+              || root.includes(token)
+            ));
+          });
+
+          if (!rootMatches.length) {
+            continue;
+          }
+
+          const normalizedTitle = normalizeSearch(title);
+          const normalizedSegment = normalizeSearch(segment);
+          const span = voicePartialSpan(segment, title, group);
+
+          let score = rootMatches.length * 35;
+
+          if (normalizedTitle.includes(normalizedSegment) && normalizedSegment.length >= 3) {
+            score += 90;
+          }
+
+          if (titleRoots.some(root => queryRoots.includes(root))) {
+            score += 45;
+          }
+
+          if (rootMatches.length === queryRoots.length) {
+            score += 30;
+          }
+
+          results.push({
+            mode,
+            group,
+            item: title,
+            score,
+            span: span || { start: 0, end: Math.max(0, queryRoots.length - 1), length: rootMatches.length },
+            partial: true
+          });
+        }
+      }
+
+      return results
+        .sort((left, right) => {
+          if (right.score !== left.score) return right.score - left.score;
+          return left.item.length - right.item.length;
+        })
+        .slice(0, 20);
+    }
+
+    function voiceFallbackCandidates(segment) {
+      const matches = [
+        ...voicePartialSearchMatches(segment, "parts"),
+        ...voicePartialSearchMatches(segment, "service")
+      ];
+
+      if (!matches.length) {
+        return [];
+      }
+
+      const unique = [];
+      const seen = new Set();
+
+      matches.forEach(match => {
+        const key = `${match.mode}|${match.group}|${match.item}`;
+
+        if (!seen.has(key)) {
+          seen.add(key);
+          unique.push(match);
+        }
+      });
+
+      const limited = unique
+        .sort((left, right) => {
+          if (right.score !== left.score) return right.score - left.score;
+          return left.item.length - right.item.length;
+        })
+        .slice(0, 12);
+
+      const autoSelect = limited.length === 1;
+
+      return limited.map(match => ({
+        mode: match.mode,
+        group: match.group,
+        item: match.item,
+        position: null,
+        quantity: "",
+        price: "",
+        selected: autoSelect,
+        partial: true
+      }));
+    }
+
     function findVoiceCandidates(text) {
       const segments = splitVoiceText(text);
       const results = [];
       const seen = new Set();
 
+      function addCandidate(candidate) {
+        const cleaned = cleanActItem(candidate);
+        const key = voiceCandidateKey(cleaned);
+
+        if (!seen.has(key)) {
+          seen.add(key);
+          results.push({
+            ...candidate,
+            ...cleaned,
+            selected: Boolean(candidate.selected)
+          });
+        }
+      }
+
       segments.forEach(segment => {
         const matches = voiceSegmentMatches(segment);
+
+        if (!matches.length) {
+          voiceFallbackCandidates(segment).forEach(addCandidate);
+          return;
+        }
 
         matches.forEach((match, matchIndex) => {
           const positions = detectVoicePositionsForMatch(
@@ -2163,7 +2337,7 @@
           );
 
           positions.forEach(position => {
-            const candidate = {
+            addCandidate({
               mode: match.mode,
               group: match.group,
               item: match.item,
@@ -2171,14 +2345,7 @@
               quantity: "",
               price: "",
               selected: true
-            };
-
-            const key = voiceCandidateKey(candidate);
-
-            if (!seen.has(key)) {
-              seen.add(key);
-              results.push(candidate);
-            }
+            });
           });
         });
       });
@@ -2501,6 +2668,7 @@
                         <span>
                           ${candidate.mode === "parts" ? "Автозапчасть" : "Услуга СТО"}
                           → ${escapeAttr(candidate.group)}
+                          ${candidate.partial ? " · похожий вариант" : ""}
                         </span>
                       </span>
                     </label>
