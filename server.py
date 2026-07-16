@@ -101,15 +101,16 @@ def load_admin_id() -> int:
         return 0
 
 
-def load_hf_token() -> str:
-    return os.environ.get("HF_TOKEN", "").strip()
+def load_groq_api_key() -> str:
+    return os.environ.get("GROQ_API_KEY", "").strip()
 
 
 BOT_TOKEN = load_bot_token()
 ADMIN_TELEGRAM_ID = load_admin_id()
-HF_TOKEN = load_hf_token()
+GROQ_API_KEY = load_groq_api_key()
 TELEGRAM_API_URL = f"https://api.telegram.org/bot{BOT_TOKEN}"
-HF_API_URL = "https://router.huggingface.co/hf-inference/models/openai/whisper-large-v3-turbo"
+GROQ_TRANSCRIPTIONS_URL = "https://api.groq.com/openai/v1/audio/transcriptions"
+GROQ_TRANSCRIPTION_MODEL = os.environ.get("GROQ_TRANSCRIPTION_MODEL", "whisper-large-v3").strip()
 MAX_VOICE_AUDIO_BYTES = 15 * 1024 * 1024
 
 WEBHOOK_SECRET = hashlib.sha256(
@@ -176,34 +177,58 @@ async def telegram_api(
     return result
 
 
-async def transcribe_audio_with_hf(
+async def transcribe_audio_with_groq(
     *,
     audio_bytes: bytes,
     content_type: str,
 ) -> str:
-    if not HF_TOKEN:
+    if not GROQ_API_KEY:
         raise HTTPException(
             status_code=500,
-            detail="HF_TOKEN is not configured in Render.",
+            detail="GROQ_API_KEY is not configured in Render.",
         )
 
-    audio_base64 = base64.b64encode(audio_bytes).decode("utf-8")
+    content_type = content_type or "audio/webm"
+
+    if "ogg" in content_type:
+        filename = "voice.ogg"
+    elif "wav" in content_type:
+        filename = "voice.wav"
+    elif "mpeg" in content_type or "mp3" in content_type:
+        filename = "voice.mp3"
+    elif "mp4" in content_type or "m4a" in content_type:
+        filename = "voice.m4a"
+    else:
+        filename = "voice.webm"
 
     headers = {
-        "Authorization": f"Bearer {HF_TOKEN}",
-        "Content-Type": "application/json",
+        "Authorization": f"Bearer {GROQ_API_KEY}",
     }
 
-    payload = {
-        "inputs": audio_base64,
-        "parameters": {
-            "return_timestamps": False,
-        },
+    files = {
+        "file": (
+            filename,
+            audio_bytes,
+            content_type,
+        ),
+    }
+
+    data = {
+        "model": GROQ_TRANSCRIPTION_MODEL or "whisper-large-v3",
+        "language": "ru",
+        "response_format": "json",
+        "temperature": "0",
+        "prompt": (
+            "Русская речь автомастера. "
+            "Термины автозапчастей и услуг: диск сцепления, диск тормозной, "
+            "стойка стабилизатора, стойка амортизатора, колодки, суппорт, "
+            "рычаг, шаровая, фильтр, свечи, масло."
+        ),
     }
 
     timeout = httpx.Timeout(
         connect=10.0,
-        read=35.0,
+        read=45.0,
         write=20.0,
         pool=10.0,
     )
@@ -211,75 +236,59 @@ async def transcribe_audio_with_hf(
     async with httpx.AsyncClient(timeout=timeout) as client:
         try:
             response = await client.post(
-                HF_API_URL,
+                GROQ_TRANSCRIPTIONS_URL,
                 headers=headers,
-                json=payload,
+                data=data,
+                files=files,
             )
         except httpx.TimeoutException:
             raise HTTPException(
                 status_code=504,
-                detail="Hugging Face is taking too long. Please try again or enter the text manually.",
+                detail="Groq is taking too long. Please try again or enter the text manually.",
             )
-        except httpx.HTTPError:
+        except httpx.HTTPError as error:
+            print(f"ERROR: Groq request failed: {error}")
             raise HTTPException(
                 status_code=502,
-                detail="Hugging Face is temporarily unavailable. Please try again.",
+                detail="Groq is temporarily unavailable. Please try again.",
             )
 
     content_type_header = response.headers.get("content-type", "")
-
-    if response.status_code == 503:
-        raise HTTPException(
-            status_code=503,
-            detail="Hugging Face model is loading. Try again in a minute.",
-        )
-
-    if response.status_code == 504:
-        raise HTTPException(
-            status_code=504,
-            detail="Hugging Face did not respond in time. Please try again or enter the text manually.",
-        )
 
     if response.status_code >= 400:
         if "application/json" in content_type_header:
             try:
                 error_data = response.json()
             except Exception:
-                error_data = {"error": response.text[:300]}
+                error_data = {"error": response.text[:500]}
         else:
             error_data = {
-                "error": "Hugging Face returned an HTML error page.",
+                "error": response.text[:500] or "Groq returned a non-JSON error response.",
                 "status_code": response.status_code,
             }
 
         raise HTTPException(
             status_code=502,
-            detail=f"Hugging Face error {response.status_code}: {error_data}",
+            detail=f"Groq error {response.status_code}: {error_data}",
         )
 
     try:
-        data = response.json()
+        payload = response.json()
     except Exception:
         raise HTTPException(
             status_code=502,
-            detail="Hugging Face returned a non-JSON response.",
+            detail="Groq returned a non-JSON response.",
         )
 
-    if isinstance(data, dict):
-        text = str(data.get("text") or "").strip()
+    if isinstance(payload, dict):
+        text = str(payload.get("text") or "").strip()
 
         if text:
             return text
 
-        if data.get("error"):
-            raise HTTPException(
-                status_code=502,
-                detail=f"Hugging Face error: {data.get('error')}",
-            )
-
     raise HTTPException(
         status_code=502,
-        detail=f"Hugging Face did not return recognized text: {data}",
+        detail=f"Groq did not return recognized text: {payload}",
     )
 
 
@@ -1098,7 +1107,7 @@ async def voice_transcribe(payload: VoiceTranscribeRequest) -> dict:
             detail="Audio is too large. Please record a shorter voice note.",
         )
 
-    text = await transcribe_audio_with_hf(
+    text = await transcribe_audio_with_groq(
         audio_bytes=audio_bytes,
         content_type=payload.content_type or "audio/webm",
     )
