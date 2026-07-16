@@ -1,0 +1,3660 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+  <meta name="color-scheme" content="light">
+  <script src="https://telegram.org/js/telegram-web-app.js?62"></script>
+  <title>CarcityPRO</title>
+  <!-- CarcityPRO build: multi-position-price-quantity-v2 -->
+
+  <style>
+    :root {
+      --blue: #0A5BE7;
+      --blue-soft: #F1F6FF;
+      --purple: #7045D8;
+      --purple-soft: #F7F3FF;
+      --green: #007C5A;
+      --text: #101318;
+      --muted: #7D8798;
+      --line: #E7EBF1;
+      --card: #FFFFFF;
+      --page: #FFFFFF;
+      --result: #F5F7FA;
+      --shadow: 0 1px 2px rgba(16, 24, 40, 0.05), 0 4px 12px rgba(16, 24, 40, 0.03);
+    }
+
+    * {
+      box-sizing: border-box;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    html, body {
+      margin: 0;
+      min-height: 100%;
+      background: var(--page);
+      color: var(--text);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    }
+
+    body {
+      min-height: 100vh;
+    }
+
+    button, input {
+      font: inherit;
+    }
+
+    button {
+      color: inherit;
+    }
+
+    .app {
+      width: 100%;
+      max-width: 520px;
+      min-height: 100vh;
+      margin: 0 auto;
+      background: #fff;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .screen {
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      animation: screenIn .18s ease;
+    }
+
+    @keyframes screenIn {
+      from { opacity: 0; transform: translateX(7px); }
+      to { opacity: 1; transform: translateX(0); }
+    }
+
+    .topbar {
+      position: sticky;
+      top: 0;
+      z-index: 5;
+      min-height: 58px;
+      padding: max(9px, env(safe-area-inset-top)) 16px 8px;
+      display: grid;
+      grid-template-columns: 44px 1fr 44px;
+      align-items: center;
+      background: rgba(255,255,255,.96);
+      backdrop-filter: blur(12px);
+    }
+
+    .topbar-title {
+      text-align: center;
+      font-size: 17px;
+      font-weight: 700;
+      line-height: 1.2;
+    }
+
+    .back {
+      width: 40px;
+      height: 40px;
+      border: 0;
+      background: transparent;
+      color: var(--accent, var(--blue));
+      border-radius: 12px;
+      display: grid;
+      place-items: center;
+      cursor: pointer;
+      font-size: 31px;
+      line-height: 1;
+      font-weight: 300;
+      padding: 0 0 3px;
+    }
+
+    .spacer {
+      width: 44px;
+      height: 44px;
+    }
+
+    .content {
+      flex: 1;
+      padding: 12px 16px 22px;
+    }
+
+    .intro-content {
+      padding-top: 42px;
+    }
+
+    .intro-title {
+      margin: 0;
+      text-align: center;
+      font-size: 22px;
+      line-height: 1.22;
+      font-weight: 760;
+    }
+
+    .intro-subtitle {
+      margin: 10px 0 34px;
+      text-align: center;
+      color: var(--muted);
+      font-size: 15px;
+    }
+
+    .type-list {
+      display: grid;
+      gap: 16px;
+    }
+
+    .type-card {
+      width: 100%;
+      min-height: 116px;
+      border: 1px solid #DDE3EC;
+      border-radius: 14px;
+      background: #fff;
+      padding: 18px 16px;
+      display: grid;
+      grid-template-columns: 52px 1fr 24px;
+      gap: 14px;
+      align-items: center;
+      text-align: left;
+      cursor: pointer;
+      box-shadow: var(--shadow);
+    }
+
+    .type-card.selected.parts {
+      border-color: #7FAAFF;
+      background: var(--blue-soft);
+    }
+
+    .type-card.selected.service {
+      border-color: #AE91F2;
+      background: var(--purple-soft);
+    }
+
+    .type-icon {
+      width: 52px;
+      height: 52px;
+      display: grid;
+      place-items: center;
+      font-size: 33px;
+      line-height: 1;
+    }
+
+    .type-title {
+      display: block;
+      font-size: 17px;
+      font-weight: 730;
+      margin-bottom: 8px;
+    }
+
+    .type-desc {
+      display: block;
+      max-width: 220px;
+      color: #555F70;
+      font-size: 13px;
+      line-height: 1.55;
+    }
+
+    .chevron {
+      color: var(--accent, var(--blue));
+      font-size: 25px;
+      font-weight: 300;
+      text-align: right;
+    }
+
+    .search-wrap {
+      position: relative;
+      margin: 2px 0 12px;
+    }
+
+    .search {
+      width: 100%;
+      height: 44px;
+      border: 1px solid #CDD5E1;
+      border-radius: 9px;
+      outline: none;
+      padding: 0 42px 0 14px;
+      color: var(--text);
+      background: #fff;
+      font-size: 16px;
+    }
+
+    .search:focus {
+      border-color: var(--accent, var(--blue));
+      box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent, var(--blue)) 12%, transparent);
+    }
+
+    .search::placeholder {
+      color: #98A2B3;
+    }
+
+    .search-icon {
+      position: absolute;
+      right: 13px;
+      top: 50%;
+      transform: translateY(-50%);
+      color: #7A8799;
+      font-size: 18px;
+      pointer-events: none;
+    }
+
+    .list {
+      border-top: 1px solid var(--line);
+    }
+
+    .row {
+      width: 100%;
+      min-height: 57px;
+      border: 0;
+      border-bottom: 1px solid var(--line);
+      background: #fff;
+      padding: 7px 8px 7px 10px;
+      display: grid;
+      grid-template-columns: 38px 1fr 22px;
+      gap: 9px;
+      align-items: center;
+      text-align: left;
+      cursor: pointer;
+      border-radius: 0;
+    }
+
+    .row.selected {
+      margin: 3px 0;
+      border: 1.5px solid var(--accent, var(--blue));
+      border-radius: 9px;
+      background: color-mix(in srgb, var(--accent, var(--blue)) 6%, white);
+    }
+
+    .row-icon {
+      width: 32px;
+      height: 32px;
+      display: grid;
+      place-items: center;
+      font-size: 21px;
+      line-height: 1;
+    }
+
+    .row-icon.category-svg-icon {
+      font-size: 0;
+    }
+
+    .row-icon.category-svg-icon svg {
+      width: 34px;
+      height: 34px;
+      display: block;
+      overflow: visible;
+    }
+
+    .row-copy {
+      min-width: 0;
+    }
+
+    .row-title {
+      display: block;
+      font-size: 15px;
+      font-weight: 650;
+      line-height: 1.25;
+    }
+
+    .row-subtitle {
+      display: block;
+      margin-top: 4px;
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.25;
+    }
+
+    .row .chevron {
+      color: #7B8798;
+      font-size: 22px;
+    }
+
+    .row.selected .chevron {
+      color: var(--accent, var(--blue));
+    }
+
+    .empty {
+      padding: 30px 10px;
+      text-align: center;
+      color: var(--muted);
+      font-size: 14px;
+    }
+
+    .bottom-link {
+      margin-top: auto;
+      border-top: 1px solid var(--line);
+      padding: 16px 16px max(17px, env(safe-area-inset-bottom));
+      background: #fff;
+    }
+
+    .cancel {
+      width: 100%;
+      border: 0;
+      background: transparent;
+      color: var(--green);
+      font-size: 15px;
+      font-weight: 600;
+      cursor: pointer;
+    }
+
+    .success-content {
+      padding: 62px 16px 24px;
+    }
+
+    .success-mark {
+      width: 58px;
+      height: 58px;
+      margin: 0 auto 20px;
+      border-radius: 50%;
+      background: var(--green);
+      color: #fff;
+      display: grid;
+      place-items: center;
+      font-size: 34px;
+      font-weight: 800;
+    }
+
+    .success-title {
+      margin: 0 0 32px;
+      text-align: center;
+      font-size: 20px;
+      font-weight: 760;
+    }
+
+    .summary-card {
+      border-radius: 14px;
+      background: var(--result);
+      padding: 18px 16px;
+      margin-bottom: 22px;
+    }
+
+    .summary-line {
+      margin: 0 0 18px;
+      font-size: 15px;
+      line-height: 1.3;
+    }
+
+    .summary-line:last-child {
+      margin-bottom: 0;
+      font-weight: 760;
+      font-size: 17px;
+    }
+
+    .actions {
+      display: grid;
+      gap: 10px;
+    }
+
+    .primary, .secondary {
+      width: 100%;
+      min-height: 50px;
+      border-radius: 9px;
+      font-size: 15px;
+      font-weight: 680;
+      cursor: pointer;
+    }
+
+    .primary {
+      border: 1px solid var(--green);
+      background: var(--green);
+      color: #fff;
+    }
+
+    .secondary {
+      border: 1.5px solid var(--green);
+      background: #fff;
+      color: var(--green);
+    }
+
+    .primary:disabled,
+    .secondary:disabled {
+      opacity: .55;
+      cursor: default;
+    }
+
+    .pdf-status {
+      min-height: 20px;
+      margin: 12px 2px 0;
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.4;
+      text-align: center;
+    }
+
+    .pdf-status.error {
+      color: #B42318;
+    }
+
+    .voice-status {
+      margin: 8px 0 0;
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.4;
+      text-align: center;
+    }
+
+    .voice-status.error {
+      color: #B42318;
+    }
+
+    .voice-status.success {
+      color: var(--green);
+    }
+
+    .voice-candidates {
+      display: grid;
+      gap: 10px;
+      margin: 18px 0 22px;
+    }
+
+    .voice-card {
+      display: grid;
+      grid-template-columns: 28px 1fr;
+      gap: 10px;
+      align-items: flex-start;
+      padding: 13px;
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      background: #fff;
+      box-shadow: var(--shadow);
+    }
+
+    .voice-card input {
+      width: 20px;
+      height: 20px;
+      margin-top: 2px;
+      accent-color: var(--green);
+    }
+
+    .voice-card strong {
+      display: block;
+      color: var(--text);
+      font-size: 14px;
+      line-height: 1.3;
+    }
+
+    .voice-card span {
+      display: block;
+      margin-top: 4px;
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.35;
+    }
+
+    .act-header {
+      padding: 42px 16px 18px;
+      text-align: center;
+    }
+
+    .act-header h1 {
+      margin: 0 0 8px;
+      font-size: 23px;
+    }
+
+    .act-header p {
+      margin: 0;
+      color: var(--muted);
+      font-size: 14px;
+    }
+
+    .act-form {
+      padding: 0 16px 26px;
+      display: grid;
+      gap: 14px;
+    }
+
+    .act-form-title {
+      margin: 0 0 2px;
+      font-size: 18px;
+      font-weight: 760;
+    }
+
+    .field {
+      display: grid;
+      gap: 7px;
+    }
+
+    .field-label {
+      font-size: 13px;
+      font-weight: 650;
+      color: #46505F;
+    }
+
+    .field-input {
+      width: 100%;
+      height: 50px;
+      border: 1px solid #CDD5E1;
+      border-radius: 10px;
+      outline: none;
+      padding: 0 14px;
+      background: #FFFFFF;
+      color: var(--text);
+      font-size: 16px;
+    }
+
+    .field-input:focus {
+      border-color: var(--green);
+      box-shadow: 0 0 0 3px rgba(0, 124, 90, .12);
+    }
+
+    .field-input::placeholder {
+      color: #98A2B3;
+    }
+
+    .field-textarea {
+      height: auto;
+      min-height: 92px;
+      padding: 12px 14px;
+      resize: vertical;
+      line-height: 1.45;
+      font-family: inherit;
+    }
+
+    .suggest-wrap {
+      position: relative;
+    }
+
+    .suggest-list {
+      display: grid;
+      gap: 7px;
+      margin-top: 7px;
+      max-height: 190px;
+      overflow-y: auto;
+    }
+
+    .suggest-option {
+      width: 100%;
+      border: 1px solid var(--line);
+      border-radius: 9px;
+      background: #fff;
+      padding: 10px 12px;
+      text-align: left;
+      cursor: pointer;
+      box-shadow: 0 4px 12px rgba(15, 23, 42, .04);
+    }
+
+    .suggest-option strong {
+      display: block;
+      color: var(--text);
+      font-size: 14px;
+      line-height: 1.25;
+    }
+
+    .suggest-option span {
+      display: block;
+      margin-top: 4px;
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.25;
+    }
+
+    .field-hint {
+      margin-top: -2px;
+      color: var(--muted);
+      font-size: 11px;
+      line-height: 1.35;
+    }
+
+    .act-list {
+      padding: 0 16px 24px;
+      display: grid;
+      gap: 12px;
+    }
+
+    .act-card {
+      padding: 16px;
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      background: #fff;
+      box-shadow: var(--shadow);
+    }
+
+    .act-card strong {
+      display: block;
+      margin-bottom: 7px;
+      font-size: 16px;
+    }
+
+    .act-card span {
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.45;
+    }
+
+
+    .act-card-head {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 12px;
+      margin-bottom: 8px;
+    }
+
+    .act-card-head strong {
+      margin: 0;
+      min-width: 0;
+    }
+
+    .act-select {
+      flex: 0 0 auto;
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      color: #667085;
+      font-size: 12px;
+      cursor: pointer;
+      user-select: none;
+    }
+
+    .act-select input {
+      position: absolute;
+      opacity: 0;
+      pointer-events: none;
+    }
+
+    .act-select-box {
+      width: 22px;
+      height: 22px;
+      border: 1.5px solid #C7D0DC;
+      border-radius: 6px;
+      background: #fff;
+      color: transparent;
+      display: grid;
+      place-items: center;
+      font-size: 14px;
+      font-weight: 800;
+      transition: .15s ease;
+    }
+
+    .act-select input:checked + .act-select-box {
+      border-color: var(--green);
+      background: var(--green);
+      color: #fff;
+    }
+
+    .act-item-fields {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+      margin-top: 15px;
+    }
+
+    .pending-list {
+      display: grid;
+      gap: 12px;
+      margin-bottom: 22px;
+    }
+
+    .pending-card {
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      background: #fff;
+      padding: 14px;
+      box-shadow: var(--shadow);
+    }
+
+    .pending-title {
+      margin: 0 0 5px;
+      font-size: 15px;
+      font-weight: 760;
+      line-height: 1.3;
+    }
+
+    .pending-subtitle {
+      margin: 0;
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.35;
+    }
+
+    .item-field {
+      display: grid;
+      gap: 6px;
+    }
+
+    .item-field span {
+      color: #46505F;
+      font-size: 12px;
+      font-weight: 650;
+    }
+
+    .item-input {
+      width: 100%;
+      height: 42px;
+      border: 1px solid #CDD5E1;
+      border-radius: 9px;
+      outline: none;
+      padding: 0 11px;
+      background: #fff;
+      color: var(--text);
+      font-size: 16px;
+    }
+
+    .item-input:focus {
+      border-color: var(--green);
+      box-shadow: 0 0 0 3px rgba(0, 124, 90, .12);
+    }
+
+    .item-input::placeholder {
+      color: #A0A8B5;
+    }
+
+    .danger {
+      width: 100%;
+      min-height: 46px;
+      border: 1.5px solid #D92D20;
+      border-radius: 9px;
+      background: #fff;
+      color: #B42318;
+      font-size: 14px;
+      font-weight: 680;
+      cursor: pointer;
+    }
+
+    .danger:disabled {
+      opacity: .42;
+      cursor: default;
+    }
+
+    .multi-position-row {
+      min-height: 82px;
+      grid-template-columns: 58px 1fr 24px;
+      padding-top: 6px;
+      padding-bottom: 6px;
+    }
+
+    .position-visual {
+      width: 52px;
+      height: 68px;
+      display: grid;
+      place-items: center;
+    }
+
+    .position-car-svg {
+      width: 48px;
+      height: 68px;
+      display: block;
+      overflow: visible;
+    }
+
+    .multi-check {
+      width: 24px;
+      height: 24px;
+      border: 1.5px solid #C7D0DC;
+      border-radius: 7px;
+      background: #fff;
+      color: transparent;
+      display: grid;
+      place-items: center;
+      font-size: 15px;
+      font-weight: 800;
+      transition: .15s ease;
+    }
+
+    .multi-position-row.selected {
+      border: 1.5px solid var(--green);
+      background: color-mix(in srgb, var(--green) 6%, white);
+    }
+
+    .multi-position-row.selected .multi-check {
+      border-color: var(--green);
+      background: var(--green);
+      color: #fff;
+    }
+
+    .position-footer {
+      position: sticky;
+      bottom: 0;
+      z-index: 5;
+      margin-top: auto;
+      border-top: 1px solid var(--line);
+      padding: 12px 16px max(15px, env(safe-area-inset-bottom));
+      background: rgba(255,255,255,.97);
+      backdrop-filter: blur(12px);
+      display: grid;
+      gap: 10px;
+    }
+
+    .act-placeholder {
+      margin: 12px 16px 24px;
+      padding: 18px;
+      border-radius: 12px;
+      background: #F8FAFC;
+      color: #586275;
+      text-align: center;
+      font-size: 14px;
+      line-height: 1.55;
+    }
+
+    @media (min-width: 540px) {
+      body {
+        background: #EEF2F7;
+        padding: 24px 0;
+      }
+
+      .app {
+        min-height: calc(100vh - 48px);
+        border-radius: 22px;
+        overflow: hidden;
+        box-shadow: 0 16px 50px rgba(16, 24, 40, .12);
+      }
+
+      .screen {
+        min-height: calc(100vh - 48px);
+      }
+    }
+  </style>
+</head>
+
+<body>
+  <main class="app" id="app"></main>
+
+  <script>
+    const tg = window.Telegram?.WebApp;
+
+    if (tg) {
+      tg.ready();
+      tg.expand();
+      tg.setHeaderColor?.("#FFFFFF");
+      tg.setBackgroundColor?.("#FFFFFF");
+    }
+
+    const BLUE = "#0A5BE7";
+    const PURPLE = "#7045D8";
+
+    // Вставь сюда временный HTTPS-адрес backend.
+    const API_URL = ""; // same-origin: /api/... открывается с Render без CORS
+
+    let data = null;
+    let voiceMediaRecorder = null;
+    let voiceAudioChunks = [];
+    let voiceMediaStream = null;
+
+    const app = document.getElementById("app");
+
+    function lockViewportZoom() {
+      let lastTouchEnd = 0;
+
+      document.addEventListener("touchstart", event => {
+        if (event.touches && event.touches.length > 1) {
+          event.preventDefault();
+        }
+      }, { passive: false });
+
+      document.addEventListener("touchmove", event => {
+        if (event.touches && event.touches.length > 1) {
+          event.preventDefault();
+        }
+      }, { passive: false });
+
+      document.addEventListener("touchend", event => {
+        const now = Date.now();
+
+        if (now - lastTouchEnd <= 300) {
+          event.preventDefault();
+        }
+
+        lastTouchEnd = now;
+      }, { passive: false });
+
+      ["gesturestart", "gesturechange", "gestureend"].forEach(eventName => {
+        document.addEventListener(eventName, event => {
+          event.preventDefault();
+        }, { passive: false });
+      });
+    }
+
+    lockViewportZoom();
+
+
+    async function trackAppOpen() {
+      if (!tg?.initData) {
+        return;
+      }
+
+      try {
+        await fetch(`${API_URL}/api/app-open`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify({
+            init_data: tg.initData
+          })
+        });
+      } catch (error) {
+        console.warn("Не удалось записать запуск приложения:", error);
+      }
+    }
+
+    async function loadData() {
+      app.innerHTML = `
+        <section class="screen">
+          <div class="content" style="display:grid;place-items:center;text-align:center;padding-top:120px;">
+            <div>
+              <div style="font-size:34px;margin-bottom:14px;">🚗</div>
+              <strong>Загружаем справочник…</strong>
+            </div>
+          </div>
+        </section>
+      `;
+
+      try {
+        const response = await fetch("./data.json", { cache: "no-store" });
+
+        if (!response.ok) {
+          throw new Error(`Не удалось загрузить data.json: ${response.status}`);
+        }
+
+        data = await response.json();
+        render();
+        trackAppOpen();
+      } catch (error) {
+        console.error(error);
+
+        app.innerHTML = `
+          <section class="screen">
+            <div class="content" style="display:grid;place-items:center;text-align:center;padding:100px 28px;">
+              <div>
+                <div style="font-size:40px;margin-bottom:16px;">⚠️</div>
+                <h1 style="font-size:21px;margin:0 0 10px;">Не удалось загрузить справочник</h1>
+                <p style="color:#7D8798;line-height:1.5;margin:0;">
+                  Проверьте, что файл <strong>data.json</strong> находится рядом с
+                  <strong>index.html</strong>.
+                </p>
+              </div>
+            </div>
+          </section>
+        `;
+      }
+    }
+
+    function loadSavedValue(key) {
+      try {
+        return localStorage.getItem(key) || "";
+      } catch (_) {
+        return "";
+      }
+    }
+
+    function saveValue(key, value) {
+      try {
+        localStorage.setItem(key, value);
+      } catch (_) {}
+    }
+
+    const state = {
+      screen: "type",
+      history: [],
+      mode: null,
+      group: null,
+      item: null,
+      selectedPositions: [],
+      pendingItems: [],
+      deleteSelection: [],
+      voiceTranscript: "",
+      voiceCandidates: [],
+      voiceStatusText: "",
+      voiceStatusKind: "",
+      added: [],
+      actInfo: {
+        sto: loadSavedValue("carcitypro_sto"),
+        master: loadSavedValue("carcitypro_master"),
+        masterPhone: loadSavedValue("carcitypro_master_phone"),
+        carBrand: "",
+        carModel: "",
+        carYear: "",
+        mileage: "",
+        comment: ""
+      }
+    };
+
+    function haptic(type = "light") {
+      try {
+        tg?.HapticFeedback?.impactOccurred(type);
+      } catch (_) {}
+    }
+
+    function setAccent(color) {
+      document.documentElement.style.setProperty("--accent", color);
+    }
+
+    function go(screen) {
+      state.history.push(state.screen);
+      state.screen = screen;
+      render();
+      window.scrollTo(0, 0);
+    }
+
+    function back() {
+      const previous = state.history.pop();
+      state.screen = previous || "type";
+      render();
+      window.scrollTo(0, 0);
+    }
+
+    function resetFlow() {
+      state.screen = "type";
+      state.history = [];
+      state.mode = null;
+      state.group = null;
+      state.item = null;
+      state.selectedPositions = [];
+      state.pendingItems = [];
+      render();
+    }
+
+    function topbar(title, showBack = true) {
+      return `
+        <header class="topbar">
+          ${showBack ? `<button class="back" data-action="back" aria-label="Назад">‹</button>` : `<div class="spacer"></div>`}
+          <div class="topbar-title">${title}</div>
+          <div class="spacer"></div>
+        </header>
+      `;
+    }
+
+    function cancelBar() {
+      return `
+        <footer class="bottom-link">
+          <button class="cancel" data-action="cancel">Отмена</button>
+        </footer>
+      `;
+    }
+
+    const CATEGORY_ICON_TYPES = {
+      "Тормозная система": "brake",
+      "Подвеска": "suspension",
+      "Рулевое управление": "steering",
+      "Двигатель": "engine",
+      "ГРМ и приводные ремни": "timing",
+      "Система охлаждения": "cooling",
+      "Топливная система": "fuel",
+      "Система впуска": "intake",
+      "Впуск и турбина": "intake",
+      "Выпускная система": "exhaust",
+      "Система зажигания": "ignition",
+      "Трансмиссия": "transmission",
+      "Привод колес": "drive",
+      "Электрика": "electric",
+      "Освещение": "lighting",
+      "Кузов": "body",
+      "Кузовные работы": "body",
+      "Стекла и омыватель": "glass",
+      "Климатическая система": "climate",
+      "Колеса и шины": "wheels",
+      "Шиномонтаж": "wheels",
+      "Диагностика": "diagnostics",
+      "ТО": "maintenance",
+      "Развал-схождение": "alignment",
+      "Дополнительное оборудование": "extra",
+      "Выездные услуги": "mobile"
+    };
+
+    function categoryIconSvg(title) {
+      const type = CATEGORY_ICON_TYPES[title];
+
+      if (!type) {
+        return "";
+      }
+
+      const stroke = "#1D2523";
+      const green = "#007C5A";
+      const common = `fill="none" stroke-linecap="round" stroke-linejoin="round"`;
+
+      const icons = {
+        brake: `
+          <svg viewBox="0 0 48 48" aria-hidden="true" focusable="false">
+            <circle cx="22" cy="24" r="13" ${common} stroke="${stroke}" stroke-width="3"/>
+            <circle cx="22" cy="24" r="4" ${common} stroke="${stroke}" stroke-width="3"/>
+            <path d="M35 15c4 2 6 6 6 10s-2 8-6 10" ${common} stroke="${stroke}" stroke-width="3"/>
+            <path d="M35 18c2 2 3 4 3 7s-1 5-3 7" ${common} stroke="${green}" stroke-width="3"/>
+            <path d="M16 15l2 3M27 31l2 3M12 25h3M29 17h3" ${common} stroke="${stroke}" stroke-width="2.4"/>
+          </svg>
+        `,
+        suspension: `
+          <svg viewBox="0 0 48 48" aria-hidden="true" focusable="false">
+            <path d="M31 6L13 42" ${common} stroke="${stroke}" stroke-width="3"/>
+            <circle cx="34" cy="7" r="4" ${common} stroke="${stroke}" stroke-width="3"/>
+            <circle cx="12" cy="41" r="4" ${common} stroke="${stroke}" stroke-width="3"/>
+            <path d="M18 33l-4-2M31 15l4 2" ${common} stroke="${stroke}" stroke-width="3"/>
+            <path d="M19 29c7 2 11 0 15-5M17 25c7 2 12 0 16-5M15 21c7 2 12 0 16-5" ${common} stroke="${green}" stroke-width="3"/>
+          </svg>
+        `,
+        steering: `
+          <svg viewBox="0 0 48 48" aria-hidden="true" focusable="false">
+            <rect x="17" y="20" width="14" height="8" rx="2" ${common} stroke="${stroke}" stroke-width="3"/>
+            <path d="M6 24h11M31 24h11" ${common} stroke="${stroke}" stroke-width="3"/>
+            <circle cx="6" cy="24" r="4" ${common} stroke="${stroke}" stroke-width="3"/>
+            <circle cx="42" cy="24" r="4" ${common} stroke="${stroke}" stroke-width="3"/>
+            <path d="M12 18h6M30 18h6M12 30h6M30 30h6" ${common} stroke="${green}" stroke-width="3"/>
+            <path d="M24 20v-7M20 13h8" ${common} stroke="${stroke}" stroke-width="3"/>
+          </svg>
+        `,
+        engine: `
+          <svg viewBox="0 0 48 48" aria-hidden="true" focusable="false">
+            <path d="M15 17h19l5 6v12h-6l-4 5H17l-4-5h-3V22z" ${common} stroke="${stroke}" stroke-width="3"/>
+            <path d="M20 17v-5h9v5M8 25H4v9h6M39 25h5v9h-5M20 12h9" ${common} stroke="${stroke}" stroke-width="3"/>
+            <path d="M20 28v6M24 28v6M28 28v6" ${common} stroke="${green}" stroke-width="3"/>
+            <path d="M19 22h10" ${common} stroke="${stroke}" stroke-width="2.5"/>
+          </svg>
+        `,
+        timing: `
+          <svg viewBox="0 0 48 48" aria-hidden="true" focusable="false">
+            <path d="M10 14c2-5 7-8 14-8s12 3 14 8l3 19c1 6-4 10-10 10H17c-6 0-11-4-10-10z" ${common} stroke="${stroke}" stroke-width="3"/>
+            <circle cx="17" cy="18" r="6" ${common} stroke="${stroke}" stroke-width="3"/>
+            <circle cx="31" cy="18" r="6" ${common} stroke="${stroke}" stroke-width="3"/>
+            <circle cx="24" cy="34" r="6" ${common} stroke="${stroke}" stroke-width="3"/>
+            <path d="M14 17c1-2 3-3 5-3M28 17c1-2 3-3 5-3M26 32c2 1 3 3 3 5" ${common} stroke="${green}" stroke-width="2.5"/>
+          </svg>
+        `,
+        cooling: `
+          <svg viewBox="0 0 48 48" aria-hidden="true" focusable="false">
+            <rect x="10" y="13" width="28" height="24" rx="4" ${common} stroke="${stroke}" stroke-width="3"/>
+            <path d="M15 18v14M20 18v14M25 18v14M30 18v14M35 18v14" ${common} stroke="${stroke}" stroke-width="2.4"/>
+            <path d="M18 9h12M24 9v4M8 20H5v10h3M40 20h3v10h-3" ${common} stroke="${stroke}" stroke-width="3"/>
+            <path d="M33 27c3 4 5 7 5 10a5 5 0 0 1-10 0c0-3 2-6 5-10z" ${common} stroke="${stroke}" stroke-width="2.6"/>
+            <path d="M35 37c-1 2-3 3-5 3" ${common} stroke="${green}" stroke-width="2.6"/>
+          </svg>
+        `,
+        fuel: `
+          <svg viewBox="0 0 48 48" aria-hidden="true" focusable="false">
+            <rect x="11" y="12" width="14" height="28" rx="3" ${common} stroke="${stroke}" stroke-width="3"/>
+            <path d="M15 17h6M25 17l6 6v11c0 3 5 3 5 0V22" ${common} stroke="${stroke}" stroke-width="3"/>
+            <path d="M35 10l6 7M41 17v7" ${common} stroke="${stroke}" stroke-width="3"/>
+            <path d="M16 28h5M34 22v8M13 36h11" ${common} stroke="${green}" stroke-width="3"/>
+          </svg>
+        `,
+        intake: `
+          <svg viewBox="0 0 48 48" aria-hidden="true" focusable="false">
+            <path d="M26 15c7 0 12 5 12 12s-5 12-12 12H14c-4 0-7-3-7-7s3-7 7-7h7" ${common} stroke="${stroke}" stroke-width="3"/>
+            <circle cx="26" cy="27" r="8" ${common} stroke="${stroke}" stroke-width="3"/>
+            <path d="M26 19v8l6 4M7 14h10M5 20h9M7 26h7" ${common} stroke="${green}" stroke-width="3"/>
+            <path d="M38 20h5v9h-5" ${common} stroke="${stroke}" stroke-width="3"/>
+          </svg>
+        `,
+        exhaust: `
+          <svg viewBox="0 0 48 48" aria-hidden="true" focusable="false">
+            <path d="M9 20l6-5 18 6-2 9-20-2z" ${common} stroke="${stroke}" stroke-width="3"/>
+            <path d="M31 23h7l4 3-4 4h-7M8 20H4M12 28H6" ${common} stroke="${stroke}" stroke-width="3"/>
+            <path d="M39 25c3 0 4 2 4 4M38 31c3 0 4 2 4 4M34 27h5" ${common} stroke="${green}" stroke-width="2.8"/>
+          </svg>
+        `,
+        ignition: `
+          <svg viewBox="0 0 48 48" aria-hidden="true" focusable="false">
+            <path d="M21 6h10l-2 17-9 19h-7l8-19z" ${common} stroke="${stroke}" stroke-width="3"/>
+            <path d="M20 13h10M18 21h9" ${common} stroke="${stroke}" stroke-width="2.6"/>
+            <path d="M31 30l5-4-2 7 6-2-8 9" ${common} stroke="${green}" stroke-width="2.8"/>
+          </svg>
+        `,
+        transmission: `
+          <svg viewBox="0 0 48 48" aria-hidden="true" focusable="false">
+            <circle cx="20" cy="25" r="11" ${common} stroke="${stroke}" stroke-width="3"/>
+            <circle cx="20" cy="25" r="4" ${common} stroke="${stroke}" stroke-width="3"/>
+            <path d="M20 8v6M20 36v6M3 25h6M31 25h6M11 16l-4-4M29 16l4-4M11 34l-4 4M29 34l4 4" ${common} stroke="${stroke}" stroke-width="2.6"/>
+            <path d="M34 14h7v19M37 33h8" ${common} stroke="${green}" stroke-width="3"/>
+          </svg>
+        `,
+        drive: `
+          <svg viewBox="0 0 48 48" aria-hidden="true" focusable="false">
+            <circle cx="10" cy="24" r="6" ${common} stroke="${stroke}" stroke-width="3"/>
+            <circle cx="38" cy="24" r="6" ${common} stroke="${stroke}" stroke-width="3"/>
+            <path d="M16 24h16M24 17v14M19 17h10M19 31h10" ${common} stroke="${stroke}" stroke-width="3"/>
+            <path d="M17 20h14M17 28h14" ${common} stroke="${green}" stroke-width="2.4"/>
+          </svg>
+        `,
+        electric: `
+          <svg viewBox="0 0 48 48" aria-hidden="true" focusable="false">
+            <rect x="7" y="15" width="34" height="23" rx="4" ${common} stroke="${stroke}" stroke-width="3"/>
+            <path d="M16 12v3M32 12v3M14 26h7M29 26h7M32 22v8" ${common} stroke="${stroke}" stroke-width="2.6"/>
+            <path d="M24 20l-4 9h5l-3 8 7-11h-5z" ${common} stroke="${green}" stroke-width="2.6"/>
+          </svg>
+        `,
+        lighting: `
+          <svg viewBox="0 0 48 48" aria-hidden="true" focusable="false">
+            <path d="M11 17h14c6 0 10 4 10 10s-4 10-10 10H11z" ${common} stroke="${stroke}" stroke-width="3"/>
+            <path d="M25 17c-3 5-3 15 0 20M36 20h6M36 27h8M36 34h6" ${common} stroke="${green}" stroke-width="2.8"/>
+            <path d="M11 22H6M11 32H6" ${common} stroke="${stroke}" stroke-width="2.6"/>
+          </svg>
+        `,
+        body: `
+          <svg viewBox="0 0 48 48" aria-hidden="true" focusable="false">
+            <path d="M8 30h32l-3-10-7-7H18l-7 7z" ${common} stroke="${stroke}" stroke-width="3"/>
+            <path d="M18 30v9M30 30v9M15 20h18" ${common} stroke="${stroke}" stroke-width="2.6"/>
+            <path d="M16 25h16" ${common} stroke="${green}" stroke-width="3"/>
+            <circle cx="15" cy="38" r="3" ${common} stroke="${stroke}" stroke-width="2.6"/>
+            <circle cx="33" cy="38" r="3" ${common} stroke="${stroke}" stroke-width="2.6"/>
+          </svg>
+        `,
+        glass: `
+          <svg viewBox="0 0 48 48" aria-hidden="true" focusable="false">
+            <path d="M12 10h24l5 26H7z" ${common} stroke="${stroke}" stroke-width="3"/>
+            <path d="M14 34c7-6 16-7 24-4M13 20h22" ${common} stroke="${stroke}" stroke-width="2.6"/>
+            <path d="M33 15c2 2 4 4 4 7M9 39h30" ${common} stroke="${green}" stroke-width="2.8"/>
+          </svg>
+        `,
+        climate: `
+          <svg viewBox="0 0 48 48" aria-hidden="true" focusable="false">
+            <circle cx="24" cy="24" r="4" ${common} stroke="${stroke}" stroke-width="3"/>
+            <path d="M24 8v32M10 16l28 16M38 16L10 32" ${common} stroke="${stroke}" stroke-width="2.6"/>
+            <path d="M18 10l6 5 6-5M18 38l6-5 6 5M9 23l7 2-1 7M39 23l-7 2 1 7" ${common} stroke="${green}" stroke-width="2.4"/>
+          </svg>
+        `,
+        wheels: `
+          <svg viewBox="0 0 48 48" aria-hidden="true" focusable="false">
+            <circle cx="24" cy="24" r="17" ${common} stroke="${stroke}" stroke-width="3"/>
+            <circle cx="24" cy="24" r="8" ${common} stroke="${stroke}" stroke-width="3"/>
+            <circle cx="24" cy="24" r="2" fill="${stroke}"/>
+            <path d="M24 7v8M24 33v8M7 24h8M33 24h8M12 12l6 6M30 30l6 6M36 12l-6 6M18 30l-6 6" ${common} stroke="${stroke}" stroke-width="2.3"/>
+            <path d="M35 15c3 4 4 9 2 14" ${common} stroke="${green}" stroke-width="2.7"/>
+          </svg>
+        `,
+        diagnostics: `
+          <svg viewBox="0 0 48 48" aria-hidden="true" focusable="false">
+            <circle cx="20" cy="20" r="11" ${common} stroke="${stroke}" stroke-width="3"/>
+            <path d="M28 28l11 11" ${common} stroke="${stroke}" stroke-width="3"/>
+            <path d="M12 20h5l3-6 4 12 3-6h4" ${common} stroke="${green}" stroke-width="2.7"/>
+          </svg>
+        `,
+        maintenance: `
+          <svg viewBox="0 0 48 48" aria-hidden="true" focusable="false">
+            <path d="M32 7l6 6-8 8-6-6zM26 19L10 35c-2 2-2 5 0 7s5 2 7 0l16-16" ${common} stroke="${stroke}" stroke-width="3"/>
+            <path d="M12 39l4-4M27 34l5 5 10-12" ${common} stroke="${green}" stroke-width="3"/>
+          </svg>
+        `,
+        alignment: `
+          <svg viewBox="0 0 48 48" aria-hidden="true" focusable="false">
+            <circle cx="14" cy="25" r="6" ${common} stroke="${stroke}" stroke-width="3"/>
+            <circle cx="34" cy="25" r="6" ${common} stroke="${stroke}" stroke-width="3"/>
+            <path d="M14 11v8M34 11v8M10 11h8M30 11h8M8 37h32" ${common} stroke="${stroke}" stroke-width="2.6"/>
+            <path d="M20 25h8M23 21l5 4-5 4" ${common} stroke="${green}" stroke-width="2.8"/>
+          </svg>
+        `,
+        extra: `
+          <svg viewBox="0 0 48 48" aria-hidden="true" focusable="false">
+            <rect x="9" y="12" width="30" height="28" rx="5" ${common} stroke="${stroke}" stroke-width="3"/>
+            <path d="M15 19h18M15 33h18M24 23v8M20 27h8" ${common} stroke="${green}" stroke-width="3"/>
+            <path d="M17 8v4M31 8v4" ${common} stroke="${stroke}" stroke-width="2.8"/>
+          </svg>
+        `,
+        mobile: `
+          <svg viewBox="0 0 48 48" aria-hidden="true" focusable="false">
+            <path d="M7 29h27l5-7h-9l-5-6H14l-4 6z" ${common} stroke="${stroke}" stroke-width="3"/>
+            <circle cx="15" cy="36" r="4" ${common} stroke="${stroke}" stroke-width="3"/>
+            <circle cx="34" cy="36" r="4" ${common} stroke="${stroke}" stroke-width="3"/>
+            <path d="M39 12l3 3-7 7-3-3zM31 23l-5 5" ${common} stroke="${green}" stroke-width="2.8"/>
+          </svg>
+        `
+      };
+
+      return icons[type] || "";
+    }
+
+    function renderRowIcon(title, icon, group = "") {
+      const categoryTitle = group || title;
+      const svg = categoryIconSvg(categoryTitle);
+
+      if (svg) {
+        return `<span class="row-icon category-svg-icon">${svg}</span>`;
+      }
+
+      return `<span class="row-icon">${icon || ""}</span>`;
+    }
+
+    function row(item, selected = false) {
+      const [title, icon] = item;
+      return `
+        <button class="row ${selected ? "selected" : ""}" data-value="${escapeAttr(title)}">
+          ${renderRowIcon(title, icon)}
+          <span class="row-copy">
+            <span class="row-title">${title}</span>
+          </span>
+          <span class="chevron">›</span>
+        </button>
+      `;
+    }
+
+    function positionVisualKey(position) {
+      const value = normalizeSearch(position);
+
+      if (value.includes("внутрен") && value.includes("лев")) return "inner-left";
+      if (value.includes("внутрен") && value.includes("прав")) return "inner-right";
+      if (value.includes("наруж") && value.includes("лев")) return "outer-left";
+      if (value.includes("наруж") && value.includes("прав")) return "outer-right";
+
+      if (value.includes("перед") && value.includes("лев")) return "front-left";
+      if (value.includes("перед") && value.includes("прав")) return "front-right";
+      if (value.includes("зад") && value.includes("лев")) return "rear-left";
+      if (value.includes("зад") && value.includes("прав")) return "rear-right";
+
+      if (value.includes("перед")) return "front";
+      if (value.includes("зад")) return "rear";
+      if (value.includes("верх")) return "upper";
+      if (value.includes("ниж")) return "lower";
+      if (value.includes("лев")) return "left";
+      if (value.includes("прав")) return "right";
+
+      return "center";
+    }
+
+    function positionHighlight(key) {
+      const shapes = {
+        "front-left":  { cx: 18, cy: 18, rx: 13, ry: 13 },
+        "front-right": { cx: 46, cy: 18, rx: 13, ry: 13 },
+        "rear-left":   { cx: 18, cy: 78, rx: 13, ry: 13 },
+        "rear-right":  { cx: 46, cy: 78, rx: 13, ry: 13 },
+        "left":        { cx: 14, cy: 48, rx: 10, ry: 31 },
+        "right":       { cx: 50, cy: 48, rx: 10, ry: 31 },
+        "front":       { cx: 32, cy: 17, rx: 22, ry: 12 },
+        "rear":        { cx: 32, cy: 79, rx: 22, ry: 12 },
+        "upper":       { cx: 32, cy: 34, rx: 18, ry: 12 },
+        "lower":       { cx: 32, cy: 62, rx: 18, ry: 12 },
+        "inner-left":  { cx: 25, cy: 48, rx: 8, ry: 24 },
+        "inner-right": { cx: 39, cy: 48, rx: 8, ry: 24 },
+        "outer-left":  { cx: 8, cy: 48, rx: 8, ry: 31 },
+        "outer-right": { cx: 56, cy: 48, rx: 8, ry: 31 },
+        "center":      { cx: 32, cy: 48, rx: 14, ry: 20 }
+      };
+
+      return shapes[key] || shapes.center;
+    }
+
+    function positionCarIcon(position) {
+      const key = positionVisualKey(position);
+      const shape = positionHighlight(key);
+
+      return `
+        <svg
+          class="position-car-svg"
+          viewBox="0 0 64 96"
+          aria-hidden="true"
+          focusable="false"
+        >
+          <ellipse
+            cx="${shape.cx}"
+            cy="${shape.cy}"
+            rx="${shape.rx + 4}"
+            ry="${shape.ry + 4}"
+            fill="#00A77D"
+            opacity=".10"
+          />
+          <ellipse
+            cx="${shape.cx}"
+            cy="${shape.cy}"
+            rx="${shape.rx}"
+            ry="${shape.ry}"
+            fill="#00A77D"
+            opacity=".32"
+          />
+
+          <path
+            d="M23 5
+               C19 7 17 13 16 20
+               L13 31
+               L13 64
+               L16 76
+               C17 84 21 90 27 92
+               L37 92
+               C43 90 47 84 48 76
+               L51 64
+               L51 31
+               L48 20
+               C47 13 45 7 41 5
+               C36 3 28 3 23 5Z"
+            fill="#FFFFFF"
+            stroke="#273139"
+            stroke-width="1.7"
+            stroke-linejoin="round"
+          />
+
+          <path
+            d="M21 19
+               C24 14 40 14 43 19
+               L46 31
+               C38 29 26 29 18 31Z"
+            fill="#EAF1F0"
+            stroke="#7E8B91"
+            stroke-width="1"
+          />
+
+          <path
+            d="M18 65
+               C26 67 38 67 46 65
+               L43 77
+               C40 82 24 82 21 77Z"
+            fill="#EAF1F0"
+            stroke="#7E8B91"
+            stroke-width="1"
+          />
+
+          <rect
+            x="19"
+            y="33"
+            width="26"
+            height="30"
+            rx="8"
+            fill="#F7FAF9"
+            stroke="#9AA5AA"
+            stroke-width="1"
+          />
+
+          <path
+            d="M19 47 H45"
+            stroke="#C2CBC8"
+            stroke-width="1"
+          />
+
+          <path
+            d="M15 33 H11 M49 33 H53 M15 62 H11 M49 62 H53"
+            stroke="#273139"
+            stroke-width="2.4"
+            stroke-linecap="round"
+          />
+        </svg>
+      `;
+    }
+
+    function multiPositionRow(item) {
+      const [title] = item;
+      const selected = state.selectedPositions.includes(title);
+
+      return `
+        <button class="row multi-position-row ${selected ? "selected" : ""}" data-value="${escapeAttr(title)}">
+          <span class="position-visual">${positionCarIcon(title)}</span>
+          <span class="row-copy">
+            <span class="row-title">${title}</span>
+          </span>
+          <span class="multi-check">${selected ? "✓" : ""}</span>
+        </button>
+      `;
+    }
+
+    function renderMultiPositionList({ title, placeholder, items }) {
+      const selectedCount = state.selectedPositions.length;
+
+      return `
+        <section class="screen">
+          ${topbar(title)}
+          <div class="content">
+            <div class="search-wrap">
+              <input class="search" id="searchInput" type="search" autocomplete="off" placeholder="${placeholder}">
+              <span class="search-icon">⌕</span>
+            </div>
+            <div class="list" id="listContainer">
+              ${items.map(item => multiPositionRow(item)).join("")}
+            </div>
+          </div>
+          <footer class="position-footer">
+            <button
+              class="primary"
+              data-action="confirm-positions"
+              ${selectedCount ? "" : "disabled"}
+            >
+              ${selectedCount ? `Добавить выбранные (${selectedCount})` : "Выберите расположение"}
+            </button>
+            <button class="cancel" data-action="cancel">Отмена</button>
+          </footer>
+        </section>
+      `;
+    }
+
+    function updatePositionConfirmButton() {
+      const button = document.querySelector('[data-action="confirm-positions"]');
+      const count = state.selectedPositions.length;
+
+      if (!button) return;
+
+      button.disabled = !count;
+      button.textContent = count
+        ? `Добавить выбранные (${count})`
+        : "Выберите расположение";
+    }
+
+    function togglePositionSelection(value, rowElement) {
+      const index = state.selectedPositions.indexOf(value);
+
+      if (index >= 0) {
+        state.selectedPositions.splice(index, 1);
+      } else {
+        state.selectedPositions.push(value);
+      }
+
+      const selected = state.selectedPositions.includes(value);
+      rowElement.classList.toggle("selected", selected);
+
+      const check = rowElement.querySelector(".multi-check");
+      if (check) check.textContent = selected ? "✓" : "";
+
+      updatePositionConfirmButton();
+    }
+
+    function globalSearchRow({ title, icon, group, kind }) {
+      return `
+        <button
+          class="row"
+          data-value="${escapeAttr(title)}"
+          data-kind="${escapeAttr(kind)}"
+          data-group="${escapeAttr(group || "")}"
+        >
+          ${renderRowIcon(title, icon, group)}
+          <span class="row-copy">
+            <span class="row-title">${title}</span>
+            ${group ? `<span class="row-subtitle">${group}</span>` : ""}
+          </span>
+          <span class="chevron">›</span>
+        </button>
+      `;
+    }
+
+    function normalizeSearch(value) {
+      return String(value)
+        .toLocaleLowerCase("ru")
+        .replaceAll("ё", "е")
+        .trim();
+    }
+
+    function tokensEverywhere(term, text) {
+      const tokens = normalizeSearch(term).split(/\s+/).filter(Boolean);
+      const normalizedText = normalizeSearch(text);
+
+      return tokens.length > 0 && tokens.every(token => normalizedText.includes(token));
+    }
+
+    function synonymTextFor(title, group = "") {
+      const baseText = `${title} ${group}`;
+      const normalizedBase = normalizeSearch(baseText);
+      const synonyms = [];
+
+      for (const synonymGroup of (data.synonymGroups || [])) {
+        const isRelated = synonymGroup.some(term => {
+          const normalizedTerm = normalizeSearch(term);
+
+          return normalizedBase.includes(normalizedTerm) || tokensEverywhere(term, normalizedBase);
+        });
+
+        if (isRelated) {
+          synonyms.push(...synonymGroup);
+        }
+      }
+
+      return synonyms.join(" ");
+    }
+
+    function searchableText(title, group = "") {
+      return normalizeSearch(`${title} ${group} ${synonymTextFor(title, group)}`);
+    }
+
+    function matchesSearchText(text, query) {
+      const tokens = normalizeSearch(query).split(/\s+/).filter(Boolean);
+      const haystack = normalizeSearch(text);
+
+      return tokens.length > 0 && tokens.every(token => haystack.includes(token));
+    }
+
+    function brandSearchText(brand) {
+      const synonyms = data.carBrandSynonyms?.[brand] || [];
+      return `${brand} ${synonyms.join(" ")}`;
+    }
+
+    function modelSearchText(brand, model) {
+      const brandSynonyms = data.carBrandSynonyms?.[brand] || [];
+      const modelSynonyms = data.carModelSynonyms?.[brand]?.[model] || [];
+
+      return `${brand} ${brandSynonyms.join(" ")} ${model} ${modelSynonyms.join(" ")}`;
+    }
+
+    function resolveCarBrand(value) {
+      const normalized = normalizeSearch(value);
+
+      if (!normalized) return "";
+
+      for (const brand of (data.carBrands || [])) {
+        if (normalizeSearch(brand) === normalized) {
+          return brand;
+        }
+
+        const synonyms = data.carBrandSynonyms?.[brand] || [];
+
+        if (synonyms.some(term => normalizeSearch(term) === normalized)) {
+          return brand;
+        }
+      }
+
+      return "";
+    }
+
+    function carBrandSuggestions(query) {
+      const normalized = normalizeSearch(query);
+
+      if (!normalized) {
+        return (data.carBrands || []).slice(0, 20);
+      }
+
+      return (data.carBrands || [])
+        .filter(brand => matchesSearchText(brandSearchText(brand), query))
+        .slice(0, 20);
+    }
+
+    function carModelSuggestions(query, brandInput = "") {
+      const selectedBrand = resolveCarBrand(brandInput);
+      const brands = selectedBrand
+        ? [selectedBrand]
+        : Object.keys(data.carModels || {});
+      const results = [];
+
+      for (const brand of brands) {
+        const models = data.carModels?.[brand] || [];
+
+        for (const model of models) {
+          const searchText = modelSearchText(brand, model);
+
+          if (!query.trim()) {
+            if (selectedBrand) {
+              results.push({ brand, model });
+            }
+          } else if (matchesSearchText(searchText, query)) {
+            results.push({ brand, model });
+          }
+
+          if (results.length >= 30) {
+            return results;
+          }
+        }
+      }
+
+      return results;
+    }
+
+    function buildCarText() {
+      const brand = state.actInfo.carBrand.trim();
+      const model = state.actInfo.carModel.trim();
+      const year = state.actInfo.carYear.trim();
+
+      let car = [brand, model].filter(Boolean).join(" ");
+
+      if (year) {
+        car = car ? `${car}, ${year}` : year;
+      }
+
+      return car;
+    }
+
+    function renderSuggestionButton({ title, subtitle, action, brand = "", model = "" }) {
+      return `
+        <button
+          type="button"
+          class="suggest-option"
+          data-action="${escapeAttr(action)}"
+          data-brand="${escapeAttr(brand)}"
+          data-model="${escapeAttr(model)}"
+        >
+          <strong>${title}</strong>
+          ${subtitle ? `<span>${subtitle}</span>` : ""}
+        </button>
+      `;
+    }
+
+    function renderBrandSuggestions() {
+      const input = document.getElementById("carBrandInput");
+      const list = document.getElementById("carBrandSuggestions");
+
+      if (!input || !list) return;
+
+      const query = input.value.trim();
+      const suggestions = carBrandSuggestions(query);
+
+      list.innerHTML = suggestions.length
+        ? suggestions.map(brand => renderSuggestionButton({
+            title: brand,
+            subtitle: "",
+            action: "select-car-brand",
+            brand
+          })).join("")
+        : "";
+    }
+
+    function renderModelSuggestions() {
+      const brandInput = document.getElementById("carBrandInput");
+      const modelInput = document.getElementById("carModelInput");
+      const list = document.getElementById("carModelSuggestions");
+
+      if (!modelInput || !list) return;
+
+      const query = modelInput.value.trim();
+      const suggestions = carModelSuggestions(query, brandInput?.value || "");
+
+      list.innerHTML = suggestions.length
+        ? suggestions.map(({ brand, model }) => renderSuggestionButton({
+            title: model,
+            subtitle: brand,
+            action: "select-car-model",
+            brand,
+            model
+          })).join("")
+        : "";
+    }
+
+    function partSearchResults(query) {
+      const normalizedQuery = normalizeSearch(query);
+      const tokens = normalizedQuery.split(/\s+/).filter(Boolean);
+      const results = [];
+
+      for (const [group, items] of Object.entries(data.parts || {})) {
+        for (const [title, icon] of items) {
+          const haystack = searchableText(title, group);
+
+          if (tokens.every(token => haystack.includes(token))) {
+            results.push({ title, icon, group, kind: "part" });
+          }
+        }
+      }
+
+      return results.slice(0, 60);
+    }
+
+    function serviceSearchResults(query) {
+      const normalizedQuery = normalizeSearch(query);
+      const tokens = normalizedQuery.split(/\s+/).filter(Boolean);
+      const results = [];
+
+      for (const [group, items] of Object.entries(data.services || {})) {
+        for (const [title, icon] of items) {
+          const haystack = searchableText(title, group);
+
+          if (tokens.every(token => haystack.includes(token))) {
+            results.push({ title, icon, group, kind: "service" });
+          }
+        }
+      }
+
+      return results.slice(0, 60);
+    }
+
+    function voiceRecordingSupported() {
+      return Boolean(
+        navigator.mediaDevices
+        && navigator.mediaDevices.getUserMedia
+        && window.MediaRecorder
+      );
+    }
+
+    function compactRepeatedVoiceWords(text) {
+      let words = String(text || "")
+        .replace(/\s+/g, " ")
+        .trim()
+        .split(" ")
+        .filter(Boolean);
+
+      if (!words.length) return "";
+
+      for (let size = 5; size >= 1; size -= 1) {
+        let changed = true;
+
+        while (changed) {
+          changed = false;
+          const compacted = [];
+
+          for (let index = 0; index < words.length;) {
+            const current = words
+              .slice(index, index + size)
+              .map(word => normalizeSearch(word))
+              .join(" ");
+            const next = words
+              .slice(index + size, index + size * 2)
+              .map(word => normalizeSearch(word))
+              .join(" ");
+
+            if (
+              current
+              && next
+              && current === next
+              && words.slice(index + size, index + size * 2).length === size
+            ) {
+              compacted.push(...words.slice(index, index + size));
+              index += size * 2;
+              changed = true;
+            } else {
+              compacted.push(words[index]);
+              index += 1;
+            }
+          }
+
+          words = compacted;
+        }
+      }
+
+      return words.join(" ").trim();
+    }
+
+    function cleanVoiceTranscript(text) {
+      return String(text || "")
+        .split(/[,;\n]+/)
+        .map(part => compactRepeatedVoiceWords(part))
+        .filter(Boolean)
+        .join(", ");
+    }
+
+    function voiceTokenRoot(token) {
+      let value = normalizeSearch(token).replace(/[^a-zа-я0-9]+/gi, "");
+
+      if (value.length <= 4) return value;
+
+      const endings = [
+        "ыми", "ими", "ого", "его", "ому", "ему", "ыми", "ими",
+        "ая", "яя", "ое", "ее", "ые", "ие", "ый", "ий", "ой",
+        "ую", "юю", "ых", "их", "ам", "ям", "ах", "ях", "ом",
+        "ем", "ов", "ев", "а", "я", "ы", "и", "у", "ю", "е"
+      ];
+
+      for (const ending of endings) {
+        if (value.endsWith(ending) && value.length - ending.length >= 4) {
+          return value.slice(0, -ending.length);
+        }
+      }
+
+      return value;
+    }
+
+    function voiceTokenRoots(text) {
+      return normalizeSearch(text)
+        .split(/\s+/)
+        .map(voiceTokenRoot)
+        .filter(token => token.length > 2);
+    }
+
+    function splitVoiceText(text) {
+      return cleanVoiceTranscript(text)
+        .toLocaleLowerCase("ru")
+        .replaceAll("ё", "е")
+        .replace(/[.!?]/g, ",")
+        .split(/[,;\n]+|(?:\s+потом\s+)|(?:\s+также\s+)|(?:\s+еще\s+)|(?:\s+ещё\s+)/)
+        .map(part => part.trim())
+        .filter(Boolean);
+    }
+
+    function voiceTermScore(segment, title, group) {
+      const normalizedSegment = normalizeSearch(segment);
+      const titleText = normalizeSearch(title);
+      const haystack = searchableText(title, group);
+      const synonyms = synonymTextFor(title, group)
+        .split(/\s{2,}|,|;/)
+        .map(term => normalizeSearch(term))
+        .filter(Boolean);
+
+      const ignoredRoots = new Set([
+        "передн", "перед", "задн", "зад", "лев", "прав",
+        "верхн", "верх", "нижн", "ниж", "слева", "справа",
+        "замен", "помен", "постав", "нужн", "над", "одн",
+        "дв", "три", "четыр", "пять", "штук", "шт"
+      ]);
+
+      const segmentRoots = [...new Set(voiceTokenRoots(segment))]
+        .filter(token => !ignoredRoots.has(token));
+      const titleRoots = [...new Set(voiceTokenRoots(title))]
+        .filter(token => !ignoredRoots.has(token));
+      const haystackRoots = new Set(
+        voiceTokenRoots(haystack).filter(token => !ignoredRoots.has(token))
+      );
+
+      if (!segmentRoots.length) {
+        return 0;
+      }
+
+      let score = 0;
+
+      if (titleText.length > 3 && normalizedSegment.includes(titleText)) {
+        score += 140 + titleText.length;
+      }
+
+      synonyms.forEach(term => {
+        if (term.length > 3 && normalizedSegment.includes(term)) {
+          score += 100 + term.length;
+        }
+      });
+
+      const titleMatches = titleRoots.filter(token => segmentRoots.includes(token));
+      const haystackMatches = segmentRoots.filter(token => haystackRoots.has(token));
+
+      score += titleMatches.length * 45;
+      score += haystackMatches.length * 12;
+
+      if (titleRoots.length && titleMatches.length === titleRoots.length) {
+        score += 120;
+      }
+
+      if (titleRoots.length >= 2 && titleMatches.length >= 2) {
+        score += 90;
+      }
+
+      if (titleRoots.length >= 2 && titleMatches.length === 1) {
+        score += 15;
+      }
+
+      return score;
+    }
+
+    function voiceMatchSpan(segment, title) {
+      const segmentRoots = voiceTokenRoots(segment);
+      const titleRoots = [...new Set(voiceTokenRoots(title))];
+
+      if (!segmentRoots.length || !titleRoots.length) {
+        return null;
+      }
+
+      let bestPositions = null;
+      let bestWidth = Infinity;
+
+      for (let startIndex = 0; startIndex < segmentRoots.length; startIndex += 1) {
+        let cursor = startIndex;
+        const positions = [];
+        let ok = true;
+
+        for (const root of titleRoots) {
+          let foundIndex = -1;
+
+          for (let index = cursor; index < segmentRoots.length; index += 1) {
+            const token = segmentRoots[index];
+
+            if (
+              token === root
+              || token.includes(root)
+              || root.includes(token)
+            ) {
+              foundIndex = index;
+              break;
+            }
+          }
+
+          if (foundIndex < 0) {
+            ok = false;
+            break;
+          }
+
+          positions.push(foundIndex);
+          cursor = foundIndex + 1;
+        }
+
+        if (!ok) continue;
+
+        const width = positions[positions.length - 1] - positions[0];
+
+        if (width < bestWidth) {
+          bestWidth = width;
+          bestPositions = positions;
+        }
+      }
+
+      if (!bestPositions) {
+        return null;
+      }
+
+      return {
+        start: bestPositions[0],
+        end: bestPositions[bestPositions.length - 1],
+        length: titleRoots.length
+      };
+    }
+
+    function allVoiceCatalogMatches(segment, mode) {
+      const source = mode === "parts" ? (data.parts || {}) : (data.services || {});
+      const matches = [];
+
+      for (const [group, items] of Object.entries(source)) {
+        for (const [title] of items) {
+          const score = voiceTermScore(segment, title, group);
+          const span = voiceMatchSpan(segment, title);
+
+          if (score >= 45 && span) {
+            matches.push({
+              mode,
+              group,
+              item: title,
+              score,
+              span
+            });
+          }
+        }
+      }
+
+      return matches;
+    }
+
+    function removeNestedVoiceMatches(matches) {
+      const sorted = [...matches].sort((left, right) => {
+        if (right.score !== left.score) return right.score - left.score;
+        return right.span.length - left.span.length;
+      });
+
+      const selected = [];
+
+      sorted.forEach(match => {
+        const overlapsBetter = selected.some(existing => {
+          const overlaps = !(
+            match.span.end < existing.span.start
+            || match.span.start > existing.span.end
+          );
+
+          if (!overlaps) return false;
+
+          const matchSpecificity = voiceTokenRoots(match.item).length;
+          const existingSpecificity = voiceTokenRoots(existing.item).length;
+
+          return existing.score >= match.score
+            || existingSpecificity >= matchSpecificity;
+        });
+
+        if (!overlapsBetter) {
+          selected.push(match);
+        }
+      });
+
+      return selected.sort((left, right) => left.span.start - right.span.start);
+    }
+
+    function voiceSegmentMatches(segment) {
+      const matches = [
+        ...allVoiceCatalogMatches(segment, "parts"),
+        ...allVoiceCatalogMatches(segment, "service")
+      ];
+
+      return removeNestedVoiceMatches(matches);
+    }
+
+    function voicePositionFlags(text) {
+      const value = normalizeSearch(text);
+
+      return {
+        hasFront: /перед|передн/.test(value),
+        hasRear: /зад|задн/.test(value),
+        hasLeft: /лев|слева/.test(value),
+        hasRight: /прав|справа/.test(value),
+        hasUpper: /верх|верхн/.test(value),
+        hasLower: /ниж|нижн/.test(value)
+      };
+    }
+
+    function hasAnyVoicePositionFlag(flags) {
+      return Boolean(
+        flags.hasFront
+        || flags.hasRear
+        || flags.hasLeft
+        || flags.hasRight
+        || flags.hasUpper
+        || flags.hasLower
+      );
+    }
+
+    function detectVoicePositionsForMatch(segment, itemName, mode, match, matches, matchIndex) {
+      const available = mode === "parts"
+        ? (data.positions?.[itemName] || [])
+        : (data.servicePositions?.[itemName] || []);
+
+      if (!available.length) {
+        return [null];
+      }
+
+      const words = normalizeSearch(segment)
+        .split(/\s+/)
+        .filter(Boolean);
+
+      const previous = matches[matchIndex - 1];
+      const next = matches[matchIndex + 1];
+
+      const beforeStart = previous ? previous.span.end + 1 : 0;
+      const beforeText = words
+        .slice(beforeStart, match.span.start)
+        .join(" ");
+
+      const afterEnd = next ? next.span.start : words.length;
+      const afterText = words
+        .slice(match.span.end + 1, afterEnd)
+        .join(" ");
+
+      let flags = voicePositionFlags(beforeText);
+
+      if (!hasAnyVoicePositionFlag(flags)) {
+        flags = voicePositionFlags(afterText);
+      }
+
+      const matchesByPosition = available.filter(position => {
+        const positionText = normalizeSearch(position);
+
+        if (flags.hasFront && !positionText.includes("перед")) return false;
+        if (flags.hasRear && !positionText.includes("зад")) return false;
+        if (flags.hasLeft && !positionText.includes("лев")) return false;
+        if (flags.hasRight && !positionText.includes("прав")) return false;
+        if (flags.hasUpper && !positionText.includes("верх")) return false;
+        if (flags.hasLower && !positionText.includes("ниж")) return false;
+
+        return hasAnyVoicePositionFlag(flags);
+      });
+
+      if (matchesByPosition.length) {
+        return matchesByPosition;
+      }
+
+      return [null];
+    }
+
+    function voiceCandidateKey(candidate) {
+      return [
+        candidate.mode,
+        candidate.group,
+        candidate.item,
+        candidate.position || ""
+      ].join("|");
+    }
+
+    function findVoiceCandidates(text) {
+      const segments = splitVoiceText(text);
+      const results = [];
+      const seen = new Set();
+
+      segments.forEach(segment => {
+        const matches = voiceSegmentMatches(segment);
+
+        matches.forEach((match, matchIndex) => {
+          const positions = detectVoicePositionsForMatch(
+            segment,
+            match.item,
+            match.mode,
+            match,
+            matches,
+            matchIndex
+          );
+
+          positions.forEach(position => {
+            const candidate = {
+              mode: match.mode,
+              group: match.group,
+              item: match.item,
+              position,
+              quantity: "",
+              price: "",
+              selected: true
+            };
+
+            const key = voiceCandidateKey(candidate);
+
+            if (!seen.has(key)) {
+              seen.add(key);
+              results.push(candidate);
+            }
+          });
+        });
+      });
+
+      return results;
+    }
+
+    function renderSearchList({ title, placeholder, items, selectedValue, screenClass = "" }) {
+      return `
+        <section class="screen ${screenClass}">
+          ${topbar(title)}
+          <div class="content">
+            <div class="search-wrap">
+              <input class="search" id="searchInput" type="search" autocomplete="off" placeholder="${placeholder}">
+              <span class="search-icon">⌕</span>
+            </div>
+            <div class="list" id="listContainer">
+              ${items.map(item => row(item, item[0] === selectedValue)).join("")}
+            </div>
+          </div>
+          ${cancelBar()}
+        </section>
+      `;
+    }
+
+    function renderType() {
+      setAccent(BLUE);
+      const hasActItems = state.added.length > 0;
+
+      return `
+        <section class="screen">
+          ${topbar("", false)}
+          <div class="content intro-content">
+            <h1 class="intro-title">Что нужно добавить?</h1>
+            <p class="intro-subtitle">Выберите тип позиции</p>
+
+            <div class="type-list">
+              <button class="type-card parts" data-mode="parts">
+                <span class="type-icon">⚙️</span>
+                <span>
+                  <span class="type-title">Автозапчасть</span>
+                  <span class="type-desc">Запчасти и комплектующие<br>для автомобиля</span>
+                </span>
+                <span class="chevron">›</span>
+              </button>
+
+              <button class="type-card service" data-mode="service">
+                <span class="type-icon">🛠️</span>
+                <span>
+                  <span class="type-title">Услуга СТО</span>
+                  <span class="type-desc">Работы и услуги<br>автосервиса</span>
+                </span>
+                <span class="chevron">›</span>
+              </button>
+            </div>
+
+            <div class="actions" style="margin-top:22px;">
+              <button class="secondary" data-action="open-voice">
+                🎙 Продиктовать запчасти/услуги
+              </button>
+
+              ${hasActItems
+                ? `<button class="secondary" data-action="open-act">
+                    Перейти к акту дефектовки (${state.added.length})
+                  </button>`
+                : ""}
+            </div>
+          </div>
+          ${cancelBar()}
+        </section>
+      `;
+    }
+
+    function renderGroup() {
+      setAccent(BLUE);
+      return renderSearchList({
+        title: "Выберите группу",
+        placeholder: "Поиск детали или группы",
+        items: data.groups,
+        selectedValue: state.group
+      });
+    }
+
+    function renderPart() {
+      setAccent(BLUE);
+      const items = data.parts[state.group] || [];
+      return renderSearchList({
+        title: state.group,
+        placeholder: "Поиск по запчастям",
+        items,
+        selectedValue: state.item
+      });
+    }
+
+    function renderPosition() {
+      setAccent(BLUE);
+      const items = data.positions[state.item] || [];
+      return renderMultiPositionList({
+        title: state.item,
+        placeholder: "Поиск по расположению",
+        items
+      });
+    }
+
+    function renderServiceCategory() {
+      setAccent(PURPLE);
+      return renderSearchList({
+        title: "Выберите категорию",
+        placeholder: "Поиск услуги или категории",
+        items: data.serviceCategories,
+        selectedValue: state.group
+      });
+    }
+
+    function renderService() {
+      setAccent(PURPLE);
+      const items = data.services[state.group] || [];
+      return renderSearchList({
+        title: state.group,
+        placeholder: "Поиск по услугам",
+        items,
+        selectedValue: state.item
+      });
+    }
+
+    function renderServicePosition() {
+      setAccent(PURPLE);
+      const items = data.servicePositions[state.item] || [];
+      return renderMultiPositionList({
+        title: state.item,
+        placeholder: "Поиск по расположению",
+        items
+      });
+    }
+
+    function currentSummary() {
+      const positions = state.selectedPositions.join(", ");
+
+      if (state.mode === "parts") {
+        return ["Автозапчасть", state.group, state.item, positions].filter(Boolean);
+      }
+
+      return ["Услуга СТО", state.group, state.item, positions].filter(Boolean);
+    }
+
+    function renderItemDetails() {
+      setAccent(state.mode === "parts" ? BLUE : PURPLE);
+      const summary = currentSummary();
+      const pendingCount = state.pendingItems.length;
+      const itemType = state.mode === "parts" ? "запчасти" : "услуги";
+      const saveButtonText = pendingCount > 1
+        ? `Сохранить и добавить позиции (${pendingCount})`
+        : `Сохранить и добавить ${itemType}`;
+
+      return `
+        <section class="screen">
+          ${topbar("Данные позиции")}
+
+          <div class="content success-content">
+            <h1 class="success-title" style="margin-bottom:14px;">
+              Указать кол-во и цену?
+            </h1>
+
+            <p class="intro-subtitle" style="margin-bottom:20px;">
+              Можно заполнить отдельно для каждой позиции или пропустить и указать позже в акте.
+            </p>
+
+            <div class="summary-card">
+              ${summary.map((line, index) => `<p class="summary-line">${index === summary.length - 1 ? `<strong>${line}</strong>` : line}</p>`).join("")}
+              ${pendingCount > 1 ? `<p class="summary-line"><strong>Будет добавлено позиций: ${pendingCount}</strong></p>` : ""}
+            </div>
+
+            <div class="pending-list">
+              ${state.pendingItems.map((item, index) => `
+                <div class="pending-card">
+                  <p class="pending-title">${escapeAttr(item.position || item.item)}</p>
+                  <p class="pending-subtitle">
+                    ${item.mode === "parts" ? "Автозапчасть" : "Услуга СТО"} → ${escapeAttr(item.group)} → ${escapeAttr(item.item)}
+                  </p>
+
+                  <div class="act-item-fields">
+                    <label class="item-field">
+                      <span>Кол-во</span>
+                      <input
+                        class="item-input"
+                        type="text"
+                        inputmode="decimal"
+                        maxlength="30"
+                        autocomplete="off"
+                        placeholder="Например: 1"
+                        data-pending-index="${index}"
+                        data-pending-field="quantity"
+                      >
+                    </label>
+
+                    <label class="item-field">
+                      <span>Цена, ₸</span>
+                      <input
+                        class="item-input"
+                        type="text"
+                        inputmode="decimal"
+                        maxlength="50"
+                        autocomplete="off"
+                        placeholder="Например: 25000"
+                        data-pending-index="${index}"
+                        data-pending-field="price"
+                      >
+                    </label>
+                  </div>
+                </div>
+              `).join("")}
+            </div>
+
+            <div class="actions">
+              <button class="primary" data-action="save-item-details">
+                ${saveButtonText}
+              </button>
+              <button class="secondary" data-action="skip-item-details">
+                Пропустить
+              </button>
+            </div>
+          </div>
+          ${cancelBar()}
+        </section>
+      `;
+    }
+
+    function renderSuccess() {
+      setAccent(state.mode === "parts" ? BLUE : PURPLE);
+      const summary = currentSummary();
+      const multiple = state.selectedPositions.length > 1;
+      const successTitle = state.mode === "parts"
+        ? (multiple ? "Позиции добавлены" : "Позиция добавлена")
+        : (multiple ? "Услуги добавлены" : "Услуга добавлена");
+
+      return `
+        <section class="screen">
+          <div class="content success-content">
+            <div class="success-mark">✓</div>
+            <h1 class="success-title">${successTitle}</h1>
+
+            <div class="summary-card">
+              ${summary.map((line, index) => `<p class="summary-line">${index === summary.length - 1 ? `<strong>${line}</strong>` : line}</p>`).join("")}
+            </div>
+
+            <div class="actions">
+              <button class="primary" data-action="add-part">Добавить запчасть</button>
+              <button class="primary" data-action="add-service">Добавить услугу</button>
+              <button class="secondary" data-action="open-act">Перейти к акту дефектовки</button>
+            </div>
+          </div>
+          ${cancelBar()}
+        </section>
+      `;
+    }
+
+    function renderVoice() {
+      setAccent(BLUE);
+      const supported = voiceRecordingSupported();
+      const candidates = state.voiceCandidates || [];
+      const selectedCount = candidates.filter(candidate => candidate.selected).length;
+
+      return `
+        <section class="screen">
+          ${topbar("Голосовой ввод")}
+
+          <div class="content success-content">
+            <h1 class="success-title" style="margin-bottom:14px;">
+              Продиктуйте запчасти и услуги
+            </h1>
+
+            <p class="intro-subtitle" style="margin-bottom:18px;">
+              Например: передняя правая стойка стабилизатора, пауза, задняя левая стойка амортизатора.
+              Пауза будет считаться разделителем между позициями.
+            </p>
+
+            ${supported
+              ? `<button class="primary" data-action="start-voice">🎙 Начать запись</button>`
+              : `<div class="pdf-status error">На этом устройстве браузер не поддерживает запись аудио. Можно вставить текст вручную ниже.</div>`
+            }
+
+            <div class="act-form" style="padding:18px 0 10px;">
+              <label class="field">
+                <span class="field-label">Распознанный текст</span>
+                <textarea
+                  class="field-input field-textarea"
+                  id="voiceTranscriptInput"
+                  maxlength="3000"
+                  placeholder="Можно продиктовать или ввести текст вручную"
+                >${escapeAttr(state.voiceTranscript || "")}</textarea>
+              </label>
+            </div>
+
+            <div class="actions">
+              <button class="secondary" data-action="find-voice-matches">
+                Найти позиции
+              </button>
+            </div>
+
+            <div class="voice-status ${state.voiceStatusKind || ""}" id="voiceStatus">${escapeAttr(state.voiceStatusText || "")}</div>
+
+            ${candidates.length
+              ? `<div class="voice-candidates">
+                  ${candidates.map((candidate, index) => `
+                    <label class="voice-card">
+                      <input
+                        type="checkbox"
+                        data-action="toggle-voice-candidate"
+                        data-index="${index}"
+                        ${candidate.selected ? "checked" : ""}
+                      >
+                      <span>
+                        <strong>${escapeAttr(candidate.position || candidate.item)}</strong>
+                        <span>
+                          ${candidate.mode === "parts" ? "Автозапчасть" : "Услуга СТО"}
+                          → ${escapeAttr(candidate.group)}
+                          → ${escapeAttr(candidate.item)}
+                        </span>
+                      </span>
+                    </label>
+                  `).join("")}
+                </div>
+
+                <div class="actions">
+                  <button
+                    class="primary"
+                    data-action="add-voice-candidates"
+                    ${selectedCount ? "" : "disabled"}
+                  >
+                    Добавить выбранные (${selectedCount})
+                  </button>
+                </div>`
+              : ""
+            }
+          </div>
+
+          ${cancelBar()}
+        </section>
+      `;
+    }
+
+    function renderAct() {
+      setAccent(BLUE);
+      const deleteCount = state.deleteSelection.length;
+
+      return `
+        <section class="screen">
+          ${topbar("Акт дефектовки")}
+
+          <div class="act-header">
+            <h1>Данные акта</h1>
+          </div>
+
+          <div class="act-form">
+            <label class="field">
+              <span class="field-label">СТО</span>
+              <input
+                class="field-input"
+                id="stoInput"
+                type="text"
+                maxlength="150"
+                autocomplete="organization"
+                placeholder="Например: CarCity Service"
+                value="${escapeAttr(state.actInfo.sto)}"
+              >
+              <span class="field-hint">Название сохранится для следующих актов.</span>
+            </label>
+
+            <label class="field">
+              <span class="field-label">Мастер</span>
+              <input
+                class="field-input"
+                id="masterInput"
+                type="text"
+                maxlength="150"
+                autocomplete="name"
+                placeholder="Например: Алексей"
+                value="${escapeAttr(state.actInfo.master)}"
+              >
+              <span class="field-hint">Имя мастера тоже сохранится.</span>
+            </label>
+
+            <label class="field">
+              <span class="field-label">Номер телефона мастера</span>
+              <input
+                class="field-input"
+                id="masterPhoneInput"
+                type="tel"
+                inputmode="tel"
+                maxlength="50"
+                autocomplete="tel"
+                placeholder="Например: +7 777 123 45 67"
+                value="${escapeAttr(state.actInfo.masterPhone)}"
+              >
+              <span class="field-hint">Номер необязательный, но тоже сохранится.</span>
+            </label>
+
+            <div class="field">
+              <span class="field-label">Марка</span>
+              <div class="suggest-wrap">
+                <input
+                  class="field-input"
+                  id="carBrandInput"
+                  type="text"
+                  maxlength="80"
+                  autocomplete="off"
+                  placeholder="Например: Toyota"
+                  value="${escapeAttr(state.actInfo.carBrand)}"
+                >
+                <div class="suggest-list" id="carBrandSuggestions"></div>
+              </div>
+            </div>
+
+            <div class="field">
+              <span class="field-label">Модель</span>
+              <div class="suggest-wrap">
+                <input
+                  class="field-input"
+                  id="carModelInput"
+                  type="text"
+                  maxlength="120"
+                  autocomplete="off"
+                  placeholder="Например: Camry"
+                  value="${escapeAttr(state.actInfo.carModel)}"
+                >
+                <div class="suggest-list" id="carModelSuggestions"></div>
+              </div>
+            </div>
+
+            <div class="act-item-fields" style="margin-top:0;">
+              <label class="field">
+                <span class="field-label">Год</span>
+                <input
+                  class="field-input"
+                  id="carYearInput"
+                  type="text"
+                  inputmode="numeric"
+                  maxlength="4"
+                  autocomplete="off"
+                  placeholder="2021"
+                  value="${escapeAttr(state.actInfo.carYear)}"
+                >
+              </label>
+
+              <label class="field">
+                <span class="field-label">Пробег</span>
+                <input
+                  class="field-input"
+                  id="carMileageInput"
+                  type="text"
+                  inputmode="numeric"
+                  maxlength="20"
+                  autocomplete="off"
+                  placeholder="180000"
+                  value="${escapeAttr(state.actInfo.mileage)}"
+                >
+              </label>
+            </div>
+          </div>
+
+          <div class="act-header" style="padding-top:0;">
+            <h1>Добавленные позиции</h1>
+          </div>
+
+          ${state.added.length
+            ? `<div class="act-list">
+                ${state.added.map((item, index) => `
+                  <div class="act-card">
+                    <div class="act-card-head">
+                      <strong>${index + 1}. ${item.position || item.item}</strong>
+                      <label class="act-select">
+                        <input
+                          type="checkbox"
+                          data-action="select-delete"
+                          data-index="${index}"
+                          ${state.deleteSelection.includes(index) ? "checked" : ""}
+                        >
+                        <span class="act-select-box">✓</span>
+                        <span>Выбрать</span>
+                      </label>
+                    </div>
+                    <span>${item.mode === "parts" ? "Автозапчасть" : "Услуга СТО"} → ${item.group} → ${item.item}</span>
+
+                    <div class="act-item-fields">
+                      <label class="item-field">
+                        <span>Кол-во</span>
+                        <input
+                          class="item-input"
+                          type="text"
+                          inputmode="decimal"
+                          maxlength="30"
+                          placeholder="Не указано"
+                          data-item-index="${index}"
+                          data-item-field="quantity"
+                          value="${escapeAttr(item.quantity || "")}"
+                        >
+                      </label>
+
+                      <label class="item-field">
+                        <span>Цена, ₸</span>
+                        <input
+                          class="item-input"
+                          type="text"
+                          inputmode="decimal"
+                          maxlength="50"
+                          placeholder="Не указано"
+                          data-item-index="${index}"
+                          data-item-field="price"
+                          value="${escapeAttr(item.price || "")}"
+                        >
+                      </label>
+                    </div>
+                  </div>
+                `).join("")}
+
+                <button
+                  class="danger"
+                  data-action="delete-selected"
+                  ${deleteCount ? "" : "disabled"}
+                >
+                  ${deleteCount ? `Удалить выбранные (${deleteCount})` : "Выберите позиции для удаления"}
+                </button>
+              </div>`
+            : `<div class="act-placeholder">Пока ни одной позиции не добавлено.</div>`
+          }
+
+          <div class="act-form" style="padding-top:0;">
+            <label class="field">
+              <span class="field-label">Комментарий мастера</span>
+              <textarea
+                class="field-input field-textarea"
+                id="commentInput"
+                maxlength="2000"
+                placeholder="Например: требуется дополнительная проверка после разборки"
+              >${escapeAttr(state.actInfo.comment || "")}</textarea>
+              <span class="field-hint">Необязательно. Комментарий попадёт в PDF под списком запчастей и услуг.</span>
+            </label>
+          </div>
+
+          <div class="content" style="padding-top:0">
+            <div class="actions">
+              <button class="secondary" data-action="open-voice">
+                🎙 Продиктовать запчасти/услуги
+              </button>
+
+              <button
+                class="primary"
+                data-action="generate-pdf"
+                ${state.added.length ? "" : "disabled"}
+              >
+                Получить PDF
+              </button>
+
+              <button class="primary" data-action="add-part">
+                Добавить запчасть
+              </button>
+
+              <button class="primary" data-action="add-service">
+                Добавить услугу
+              </button>
+            </div>
+
+            <div class="pdf-status" id="pdfStatus"></div>
+          </div>
+        </section>
+      `;
+    }
+
+    function render() {
+      const screens = {
+        type: renderType,
+        group: renderGroup,
+        part: renderPart,
+        position: renderPosition,
+        serviceCategory: renderServiceCategory,
+        service: renderService,
+        servicePosition: renderServicePosition,
+        itemDetails: renderItemDetails,
+        success: renderSuccess,
+        voice: renderVoice,
+        act: renderAct
+      };
+
+      app.innerHTML = (screens[state.screen] || renderType)();
+      bindEvents();
+    }
+
+    function hasPartPositions(itemName) {
+      return Array.isArray(data.positions?.[itemName])
+        && data.positions[itemName].length > 0;
+    }
+
+    function hasServicePositions(itemName) {
+      return Array.isArray(data.servicePositions?.[itemName])
+        && data.servicePositions[itemName].length > 0;
+    }
+
+    function completeSelectionWithoutPosition() {
+      state.selectedPositions = [];
+      preparePendingItems([buildCurrentItem(null)]);
+      go("itemDetails");
+    }
+
+    async function generatePdfAct(button) {
+      const status = document.getElementById("pdfStatus");
+
+      if (!state.added.length) {
+        return;
+      }
+
+      if (!tg?.initData) {
+        if (status) {
+          status.className = "pdf-status error";
+          status.textContent = "Откройте приложение именно внутри Telegram.";
+        }
+        return;
+      }
+
+      if (API_URL === "PASTE_TRYCLOUDFLARE_URL_HERE") {
+        if (status) {
+          status.className = "pdf-status error";
+          status.textContent = "Сначала вставьте адрес backend в API_URL.";
+        }
+        return;
+      }
+
+      const oldText = button.textContent;
+      button.disabled = true;
+      button.textContent = "Формируем PDF…";
+
+      if (status) {
+        status.className = "pdf-status";
+        status.textContent = "Акт создаётся и отправляется в чат с ботом.";
+      }
+
+      try {
+        const response = await fetch(`${API_URL}/api/generate-act`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify({
+            init_data: tg.initData,
+            sto: state.actInfo.sto.trim(),
+            master: state.actInfo.master.trim(),
+            master_phone: state.actInfo.masterPhone.trim(),
+            car: buildCarText(),
+            car_brand: state.actInfo.carBrand.trim(),
+            car_model: state.actInfo.carModel.trim(),
+            car_year: state.actInfo.carYear.trim(),
+            mileage: state.actInfo.mileage.trim(),
+            comment: state.actInfo.comment.trim(),
+            items: state.added
+          })
+        });
+
+        const result = await response.json().catch(() => ({}));
+
+        if (!response.ok) {
+          throw new Error(result.detail || "Не удалось сформировать PDF.");
+        }
+
+        haptic("medium");
+
+        if (status) {
+          status.className = "pdf-status";
+          status.textContent = `PDF отправлен в Telegram. Акт №${result.act_number}`;
+        }
+
+        if (tg.showPopup) {
+          tg.showPopup(
+            {
+              title: "PDF готов",
+              message: "Акт дефектовки отправлен сообщением в чат с CarcityPRO.",
+              buttons: [{ id: "ok", type: "ok" }]
+            },
+            () => tg.close()
+          );
+        } else {
+          alert("PDF отправлен в чат с CarcityPRO.");
+        }
+      } catch (error) {
+        console.error(error);
+
+        if (status) {
+          status.className = "pdf-status error";
+          status.textContent = error.message || "Ошибка при создании PDF.";
+        }
+
+        try {
+          tg?.HapticFeedback?.notificationOccurred("error");
+        } catch (_) {}
+      } finally {
+        button.disabled = false;
+        button.textContent = oldText;
+      }
+    }
+
+    function bindEvents() {
+      document.querySelectorAll('[data-action="back"]').forEach(el => {
+        el.addEventListener("click", () => {
+          haptic();
+          back();
+        });
+      });
+
+      document.querySelectorAll('[data-action="cancel"]').forEach(el => {
+        el.addEventListener("click", () => {
+          haptic();
+          resetFlow();
+        });
+      });
+
+      document.querySelectorAll("[data-mode]").forEach(el => {
+        el.addEventListener("click", () => {
+          state.mode = el.dataset.mode;
+          haptic();
+
+          if (state.mode === "parts") {
+            setAccent(BLUE);
+            go("group");
+          } else {
+            setAccent(PURPLE);
+            go("serviceCategory");
+          }
+        });
+      });
+
+      function bindRowClicks() {
+        document.querySelectorAll(".row[data-value]").forEach(el => {
+          if (el.dataset.bound === "true") return;
+          el.dataset.bound = "true";
+
+          el.addEventListener("click", () => {
+            const value = el.dataset.value;
+            const kind = el.dataset.kind;
+            haptic();
+
+            switch (state.screen) {
+              case "group":
+                if (kind === "part") {
+                  state.group = el.dataset.group;
+                  state.item = value;
+                  state.selectedPositions = [];
+
+                  if (hasPartPositions(value)) {
+                    go("position");
+                  } else {
+                    completeSelectionWithoutPosition();
+                  }
+                } else {
+                  state.group = value;
+                  go("part");
+                }
+                break;
+
+              case "part":
+                state.item = value;
+                state.selectedPositions = [];
+
+                if (hasPartPositions(value)) {
+                  go("position");
+                } else {
+                  completeSelectionWithoutPosition();
+                }
+                break;
+
+              case "position":
+                togglePositionSelection(value, el);
+                break;
+
+              case "serviceCategory":
+                if (el.dataset.kind === "service") {
+                  state.group = el.dataset.group;
+                  state.item = value;
+                  state.selectedPositions = [];
+
+                  if (hasServicePositions(value)) {
+                    go("servicePosition");
+                  } else {
+                    completeSelectionWithoutPosition();
+                  }
+                } else {
+                  state.group = value;
+                  if ((data.services[value] || []).length) {
+                    go("service");
+                  }
+                }
+                break;
+
+              case "service":
+                state.item = value;
+                state.selectedPositions = [];
+
+                if (hasServicePositions(value)) {
+                  go("servicePosition");
+                } else {
+                  completeSelectionWithoutPosition();
+                }
+                break;
+
+              case "servicePosition":
+                togglePositionSelection(value, el);
+                break;
+            }
+          });
+        });
+      }
+
+      bindRowClicks();
+
+      const input = document.getElementById("searchInput");
+      const list = document.getElementById("listContainer");
+
+      if (input && list) {
+        input.addEventListener("input", () => {
+          const rawQuery = input.value.trim();
+
+          if (state.screen === "group" && rawQuery) {
+            const groupQuery = normalizeSearch(rawQuery);
+            const groupTokens = groupQuery.split(/\s+/).filter(Boolean);
+
+            const matchingGroups = (data.groups || [])
+              .filter(([title]) => {
+                const text = searchableText(title);
+                return groupTokens.every(token => text.includes(token));
+              })
+              .map(([title, icon]) => ({
+                title,
+                icon,
+                group: "",
+                kind: "group"
+              }));
+
+            const matchingParts = partSearchResults(rawQuery);
+            const results = [...matchingGroups, ...matchingParts];
+
+            list.innerHTML = results.length
+              ? results.map(globalSearchRow).join("")
+              : `<div class="empty">Ничего не найдено</div>`;
+
+            bindRowClicks();
+            return;
+          }
+
+          if (state.screen === "group" && !rawQuery) {
+            list.innerHTML = (data.groups || [])
+              .map(item => row(item, item[0] === state.group))
+              .join("");
+
+            bindRowClicks();
+            return;
+          }
+
+          if (state.screen === "serviceCategory" && rawQuery) {
+            const serviceQuery = normalizeSearch(rawQuery);
+            const serviceTokens = serviceQuery.split(/\s+/).filter(Boolean);
+
+            const matchingCategories = (data.serviceCategories || [])
+              .filter(([title]) => {
+                const text = searchableText(title);
+                return serviceTokens.every(token => text.includes(token));
+              })
+              .map(([title, icon]) => ({
+                title,
+                icon,
+                group: "",
+                kind: "serviceCategory"
+              }));
+
+            const matchingServices = serviceSearchResults(rawQuery);
+            const results = [...matchingCategories, ...matchingServices];
+
+            list.innerHTML = results.length
+              ? results.map(globalSearchRow).join("")
+              : `<div class="empty">Ничего не найдено</div>`;
+
+            bindRowClicks();
+            return;
+          }
+
+          if (state.screen === "serviceCategory" && !rawQuery) {
+            list.innerHTML = (data.serviceCategories || [])
+              .map(item => row(item, item[0] === state.group))
+              .join("");
+
+            bindRowClicks();
+            return;
+          }
+
+          const query = normalizeSearch(rawQuery);
+          const rows = [...list.querySelectorAll(".row")];
+          let visible = 0;
+
+          rows.forEach(rowEl => {
+            const text = searchableText(rowEl.dataset.value, state.group || "");
+            const show = text.includes(query);
+            rowEl.style.display = show ? "grid" : "none";
+            if (show) visible += 1;
+          });
+
+          const oldEmpty = list.querySelector(".empty");
+          oldEmpty?.remove();
+
+          if (!visible) {
+            list.insertAdjacentHTML("beforeend", `<div class="empty">Ничего не найдено</div>`);
+          }
+        });
+      }
+
+      document.querySelectorAll('[data-action="confirm-positions"]').forEach(el => {
+        el.addEventListener("click", () => {
+          if (!state.selectedPositions.length) return;
+
+          haptic();
+          preparePendingItems(
+            state.selectedPositions.map(position => buildCurrentItem(position))
+          );
+          go("itemDetails");
+        });
+      });
+
+      document.querySelectorAll('[data-action="save-item-details"]').forEach(el => {
+        el.addEventListener("click", () => {
+          const details = state.pendingItems.map((_, index) => {
+            const quantityInput = document.querySelector(
+              `[data-pending-index="${index}"][data-pending-field="quantity"]`
+            );
+            const priceInput = document.querySelector(
+              `[data-pending-index="${index}"][data-pending-field="price"]`
+            );
+
+            return {
+              quantity: quantityInput?.value || "",
+              price: priceInput?.value || ""
+            };
+          });
+
+          haptic();
+          addPendingItems({ details });
+          go("success");
+        });
+      });
+
+      document.querySelectorAll('[data-action="skip-item-details"]').forEach(el => {
+        el.addEventListener("click", () => {
+          haptic();
+          addPendingItems({
+            quantity: "",
+            price: ""
+          });
+          go("success");
+        });
+      });
+
+      document.querySelectorAll('[data-action="add-part"]').forEach(el => {
+        el.addEventListener("click", () => {
+          haptic();
+          startAddFlow("parts");
+        });
+      });
+
+      document.querySelectorAll('[data-action="add-service"]').forEach(el => {
+        el.addEventListener("click", () => {
+          haptic();
+          startAddFlow("service");
+        });
+      });
+
+      document.querySelectorAll('[data-action="open-act"]').forEach(el => {
+        el.addEventListener("click", () => {
+          haptic();
+          state.history.push(state.screen);
+          state.screen = "act";
+          render();
+          window.scrollTo(0, 0);
+        });
+      });
+
+
+      const stoInput = document.getElementById("stoInput");
+      const masterInput = document.getElementById("masterInput");
+      const masterPhoneInput = document.getElementById("masterPhoneInput");
+      const carBrandInput = document.getElementById("carBrandInput");
+      const carModelInput = document.getElementById("carModelInput");
+      const carYearInput = document.getElementById("carYearInput");
+      const carMileageInput = document.getElementById("carMileageInput");
+
+      if (stoInput) {
+        stoInput.addEventListener("input", () => {
+          state.actInfo.sto = stoInput.value;
+          saveValue("carcitypro_sto", stoInput.value);
+        });
+      }
+
+      if (masterInput) {
+        masterInput.addEventListener("input", () => {
+          state.actInfo.master = masterInput.value;
+          saveValue("carcitypro_master", masterInput.value);
+        });
+      }
+
+      if (masterPhoneInput) {
+        masterPhoneInput.addEventListener("input", () => {
+          state.actInfo.masterPhone = masterPhoneInput.value;
+          saveValue("carcitypro_master_phone", masterPhoneInput.value);
+        });
+      }
+
+      if (carBrandInput) {
+        carBrandInput.addEventListener("input", () => {
+          state.actInfo.carBrand = carBrandInput.value;
+          renderBrandSuggestions();
+          renderModelSuggestions();
+        });
+
+        carBrandInput.addEventListener("focus", renderBrandSuggestions);
+      }
+
+      if (carModelInput) {
+        carModelInput.addEventListener("input", () => {
+          state.actInfo.carModel = carModelInput.value;
+          renderModelSuggestions();
+        });
+
+        carModelInput.addEventListener("focus", renderModelSuggestions);
+      }
+
+      if (carYearInput) {
+        carYearInput.addEventListener("input", () => {
+          state.actInfo.carYear = carYearInput.value.replace(/[^0-9]/g, "").slice(0, 4);
+          carYearInput.value = state.actInfo.carYear;
+        });
+      }
+
+      if (carMileageInput) {
+        carMileageInput.addEventListener("input", () => {
+          state.actInfo.mileage = carMileageInput.value.replace(/[^0-9]/g, "");
+          carMileageInput.value = state.actInfo.mileage;
+        });
+      }
+
+      const carBrandSuggestionsList = document.getElementById("carBrandSuggestions");
+
+      if (carBrandSuggestionsList) {
+        carBrandSuggestionsList.addEventListener("click", event => {
+          const option = event.target.closest('[data-action="select-car-brand"]');
+
+          if (!option) return;
+
+          haptic();
+          state.actInfo.carBrand = option.dataset.brand || "";
+          state.actInfo.carModel = "";
+
+          if (carBrandInput) carBrandInput.value = state.actInfo.carBrand;
+          if (carModelInput) carModelInput.value = "";
+
+          carBrandSuggestionsList.innerHTML = "";
+
+          const modelList = document.getElementById("carModelSuggestions");
+          if (modelList) modelList.innerHTML = "";
+        });
+      }
+
+      const carModelSuggestionsList = document.getElementById("carModelSuggestions");
+
+      if (carModelSuggestionsList) {
+        carModelSuggestionsList.addEventListener("click", event => {
+          const option = event.target.closest('[data-action="select-car-model"]');
+
+          if (!option) return;
+
+          haptic();
+          state.actInfo.carBrand = option.dataset.brand || state.actInfo.carBrand;
+          state.actInfo.carModel = option.dataset.model || "";
+
+          if (carBrandInput) carBrandInput.value = state.actInfo.carBrand;
+          if (carModelInput) carModelInput.value = state.actInfo.carModel;
+
+          carModelSuggestionsList.innerHTML = "";
+        });
+      }
+
+      const commentInput = document.getElementById("commentInput");
+
+      if (commentInput) {
+        commentInput.addEventListener("input", () => {
+          state.actInfo.comment = commentInput.value;
+        });
+      }
+
+      document.querySelectorAll('[data-item-field]').forEach(el => {
+        el.addEventListener("input", () => {
+          const index = Number(el.dataset.itemIndex);
+          const field = el.dataset.itemField;
+          const item = state.added[index];
+
+          if (!item || !["quantity", "price"].includes(field)) return;
+          item[field] = el.value;
+        });
+      });
+
+      document.querySelectorAll('[data-action="select-delete"]').forEach(el => {
+        el.addEventListener("change", () => {
+          const index = Number(el.dataset.index);
+          const currentIndex = state.deleteSelection.indexOf(index);
+
+          if (el.checked && currentIndex < 0) {
+            state.deleteSelection.push(index);
+          } else if (!el.checked && currentIndex >= 0) {
+            state.deleteSelection.splice(currentIndex, 1);
+          }
+
+          const deleteButton = document.querySelector('[data-action="delete-selected"]');
+          const count = state.deleteSelection.length;
+
+          if (deleteButton) {
+            deleteButton.disabled = !count;
+            deleteButton.textContent = count
+              ? `Удалить выбранные (${count})`
+              : "Выберите позиции для удаления";
+          }
+        });
+      });
+
+      document.querySelectorAll('[data-action="delete-selected"]').forEach(el => {
+        el.addEventListener("click", () => {
+          if (!state.deleteSelection.length) return;
+
+          const selected = new Set(state.deleteSelection);
+          state.added = state.added.filter((_, index) => !selected.has(index));
+          state.deleteSelection = [];
+          haptic("medium");
+          render();
+        });
+      });
+
+      document.querySelectorAll('[data-action="open-voice"]').forEach(el => {
+        el.addEventListener("click", () => {
+          haptic();
+          state.history.push(state.screen);
+          state.screen = "voice";
+          render();
+          window.scrollTo(0, 0);
+        });
+      });
+
+      async function stopVoiceTracks() {
+        try {
+          voiceMediaStream?.getTracks?.().forEach(track => track.stop());
+        } catch (_) {}
+
+        voiceMediaStream = null;
+      }
+
+      function preferredVoiceMimeType() {
+        const types = [
+          "audio/webm;codecs=opus",
+          "audio/webm",
+          "audio/mp4",
+          "audio/mpeg"
+        ];
+
+        return types.find(type => MediaRecorder.isTypeSupported?.(type)) || "";
+      }
+
+      function blobToBase64(blob) {
+        return new Promise((resolve, reject) => {
+          const reader = new FileReader();
+
+          reader.onloadend = () => {
+            const result = String(reader.result || "");
+            resolve(result.includes(",") ? result.split(",").pop() : result);
+          };
+
+          reader.onerror = () => reject(new Error("Не удалось прочитать аудио."));
+          reader.readAsDataURL(blob);
+        });
+      }
+
+      async function transcribeVoiceBlob(blob) {
+        const audioBase64 = await blobToBase64(blob);
+
+        const response = await fetch(`${API_URL}/api/voice-transcribe`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify({
+            init_data: tg?.initData || "",
+            content_type: blob.type || "audio/webm",
+            audio_base64: audioBase64
+          })
+        });
+
+        const result = await response.json().catch(() => ({}));
+
+        if (!response.ok || !result.ok) {
+          throw new Error(result.detail || result.error || "Не удалось распознать голос.");
+        }
+
+        return cleanVoiceTranscript(result.text || "");
+      }
+
+      document.querySelectorAll('[data-action="start-voice"]').forEach(el => {
+        el.addEventListener("click", async () => {
+          const status = document.getElementById("voiceStatus");
+          const input = document.getElementById("voiceTranscriptInput");
+
+          if (voiceMediaRecorder && voiceMediaRecorder.state === "recording") {
+            haptic();
+            voiceMediaRecorder.stop();
+            el.disabled = true;
+            el.textContent = "⏳ Распознаём…";
+
+            if (status) {
+              status.className = "voice-status";
+              status.textContent = "Отправляю аудио на распознавание…";
+            }
+
+            return;
+          }
+
+          if (!voiceRecordingSupported()) {
+            if (status) {
+              status.className = "voice-status error";
+              status.textContent = "Запись аудио недоступна на этом устройстве.";
+            }
+
+            return;
+          }
+
+          try {
+            voiceAudioChunks = [];
+            voiceMediaStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+
+            const mimeType = preferredVoiceMimeType();
+            voiceMediaRecorder = new MediaRecorder(
+              voiceMediaStream,
+              mimeType ? { mimeType } : undefined
+            );
+
+            voiceMediaRecorder.ondataavailable = event => {
+              if (event.data && event.data.size > 0) {
+                voiceAudioChunks.push(event.data);
+              }
+            };
+
+            voiceMediaRecorder.onstart = () => {
+              state.voiceStatusText = "Слушаю… Нажмите кнопку ещё раз, чтобы остановить запись.";
+              state.voiceStatusKind = "success";
+
+              if (status) {
+                status.className = "voice-status success";
+                status.textContent = state.voiceStatusText;
+              }
+
+              el.textContent = "⏹ Остановить запись";
+              el.disabled = false;
+            };
+
+            voiceMediaRecorder.onstop = async () => {
+              const audioBlob = new Blob(voiceAudioChunks, {
+                type: voiceMediaRecorder?.mimeType || "audio/webm"
+              });
+
+              await stopVoiceTracks();
+
+              if (!audioBlob.size) {
+                state.voiceStatusText = "Аудио не записалось. Попробуйте ещё раз.";
+                state.voiceStatusKind = "error";
+                el.textContent = "🎙 Начать запись";
+                el.disabled = false;
+                render();
+                return;
+              }
+
+              try {
+                state.voiceStatusText = "Распознаю голос через Hugging Face…";
+                state.voiceStatusKind = "";
+
+                if (status) {
+                  status.className = "voice-status";
+                  status.textContent = state.voiceStatusText;
+                }
+
+                const transcript = await transcribeVoiceBlob(audioBlob);
+
+                state.voiceTranscript = transcript;
+                state.voiceCandidates = findVoiceCandidates(transcript);
+                state.voiceStatusText = state.voiceCandidates.length
+                  ? "Готово. Проверьте найденные позиции."
+                  : "Текст распознан, но позиции не найдены. Можно поправить текст вручную.";
+                state.voiceStatusKind = state.voiceCandidates.length ? "success" : "error";
+
+                if (input) input.value = transcript;
+              } catch (error) {
+                state.voiceStatusText = error.message || "Не удалось распознать голос.";
+                state.voiceStatusKind = "error";
+              } finally {
+                voiceMediaRecorder = null;
+                voiceAudioChunks = [];
+                el.textContent = "🎙 Начать запись";
+                el.disabled = false;
+                render();
+              }
+            };
+
+            haptic();
+            voiceMediaRecorder.start();
+          } catch (error) {
+            await stopVoiceTracks();
+
+            if (status) {
+              status.className = "voice-status error";
+              status.textContent = error.message || "Не удалось получить доступ к микрофону.";
+            }
+
+            el.textContent = "🎙 Начать запись";
+            el.disabled = false;
+          }
+        });
+      });
+
+      document.querySelectorAll('[data-action="find-voice-matches"]').forEach(el => {
+        el.addEventListener("click", () => {
+          const input = document.getElementById("voiceTranscriptInput");
+          const status = document.getElementById("voiceStatus");
+
+          state.voiceTranscript = cleanVoiceTranscript(input?.value || "");
+          if (input) input.value = state.voiceTranscript;
+          state.voiceCandidates = findVoiceCandidates(state.voiceTranscript);
+          state.voiceStatusText = state.voiceCandidates.length
+            ? "Готово. Проверьте найденные позиции."
+            : "Позиции не найдены. Попробуйте сказать проще или поправьте текст вручную.";
+          state.voiceStatusKind = state.voiceCandidates.length ? "success" : "error";
+
+          haptic();
+          render();
+        });
+      });
+
+      document.querySelectorAll('[data-action="toggle-voice-candidate"]').forEach(el => {
+        el.addEventListener("change", () => {
+          const index = Number(el.dataset.index);
+
+          if (Number.isInteger(index) && state.voiceCandidates[index]) {
+            state.voiceCandidates[index].selected = el.checked;
+            render();
+          }
+        });
+      });
+
+      document.querySelectorAll('[data-action="add-voice-candidates"]').forEach(el => {
+        el.addEventListener("click", () => {
+          const candidates = (state.voiceCandidates || [])
+            .filter(candidate => candidate.selected)
+            .map(candidate => ({
+              mode: candidate.mode,
+              group: candidate.group,
+              item: candidate.item,
+              position: candidate.position || null,
+              quantity: "",
+              price: ""
+            }));
+
+          candidates.forEach(candidate => {
+            if (!itemAlreadyAdded(candidate)) {
+              state.added.push(candidate);
+            }
+          });
+
+          state.voiceCandidates = [];
+          state.voiceTranscript = "";
+          state.voiceStatusText = "";
+          state.voiceStatusKind = "";
+
+          haptic();
+          state.screen = "act";
+          state.history = [];
+          render();
+          window.scrollTo(0, 0);
+        });
+      });
+
+      document.querySelectorAll('[data-action="generate-pdf"]').forEach(el => {
+        el.addEventListener("click", () => {
+          generatePdfAct(el);
+        });
+      });
+    }
+
+    function startAddFlow(mode) {
+      state.history = [];
+      state.mode = mode;
+      state.group = null;
+      state.item = null;
+      state.selectedPositions = [];
+      state.deleteSelection = [];
+      state.screen = mode === "parts" ? "group" : "serviceCategory";
+      render();
+      window.scrollTo(0, 0);
+    }
+
+    function buildCurrentItem(position = null) {
+      return {
+        mode: state.mode,
+        group: state.group,
+        item: state.item,
+        position,
+        quantity: "",
+        price: ""
+      };
+    }
+
+    function sameActItem(left, right) {
+      return (
+        left.mode === right.mode
+        && left.group === right.group
+        && left.item === right.item
+        && (left.position || null) === (right.position || null)
+      );
+    }
+
+    function itemAlreadyAdded(item) {
+      return state.added.some(existing => sameActItem(existing, item));
+    }
+
+    function preparePendingItems(items) {
+      state.pendingItems = items.filter(item => !itemAlreadyAdded(item));
+
+      if (!state.pendingItems.length) {
+        const fallback = items[0];
+
+        if (fallback) {
+          state.pendingItems = [fallback];
+        }
+      }
+    }
+
+    function addCurrent(position = null) {
+      const item = buildCurrentItem(position);
+
+      if (!itemAlreadyAdded(item)) {
+        state.added.push(item);
+      }
+    }
+
+    function addPendingItems({ quantity = "", price = "", details = [] } = {}) {
+      state.pendingItems.forEach((item, index) => {
+        const detail = Array.isArray(details) ? details[index] : null;
+
+        const enrichedItem = {
+          ...item,
+          quantity: String(detail?.quantity ?? quantity ?? "").trim(),
+          price: String(detail?.price ?? price ?? "").trim()
+        };
+
+        if (!itemAlreadyAdded(enrichedItem)) {
+          state.added.push(enrichedItem);
+        }
+      });
+
+      state.pendingItems = [];
+    }
+
+    function addSelectedPositions() {
+      state.selectedPositions.forEach(position => addCurrent(position));
+    }
+
+    function escapeAttr(value) {
+      return String(value)
+        .replaceAll("&", "&amp;")
+        .replaceAll('"', "&quot;")
+        .replaceAll("<", "&lt;")
+        .replaceAll(">", "&gt;");
+    }
+
+    loadData();
+  </script>
+</body>
+</html>

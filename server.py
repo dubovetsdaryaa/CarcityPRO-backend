@@ -10,12 +10,14 @@ import time
 from contextlib import asynccontextmanager
 from datetime import datetime
 from html import escape
+from pathlib import Path
 from urllib.parse import parse_qsl
 from zoneinfo import ZoneInfo
 
 import httpx
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
 from database import (
@@ -35,8 +37,12 @@ from xlsx_export import build_acts_xlsx
 
 
 GITHUB_PAGES_ORIGIN = "https://dubovetsdaryaa.github.io"
-MINI_APP_URL = "https://dubovetsdaryaa.github.io/CarcityPRO-app/"
-PUBLIC_BASE_URL = "https://carcitypro-backend.onrender.com"
+PUBLIC_BASE_URL = os.environ.get(
+    "PUBLIC_BASE_URL",
+    "https://carcitypro-backend.onrender.com",
+).rstrip("/")
+MINI_APP_URL = f"{PUBLIC_BASE_URL}/app/"
+STATIC_DIR = Path(__file__).resolve().parent / "static"
 WEBHOOK_PATH = "/telegram/webhook"
 
 ALMATY_TZ = ZoneInfo("Asia/Almaty")
@@ -370,6 +376,12 @@ app.add_middleware(
     allow_credentials=False,
     allow_methods=["*"],
     allow_headers=["*"],
+)
+
+app.mount(
+    "/app",
+    StaticFiles(directory=STATIC_DIR, html=True),
+    name="mini_app",
 )
 
 
