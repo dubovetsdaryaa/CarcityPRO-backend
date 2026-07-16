@@ -421,6 +421,48 @@
       color: #B42318;
     }
 
+    .pdf-status.success {
+      color: var(--text);
+      text-align: left;
+    }
+
+    .pdf-result {
+      border: 1px solid #D7EEE7;
+      border-radius: 14px;
+      background: #F7FAF9;
+      padding: 14px;
+    }
+
+    .pdf-result-title {
+      display: block;
+      margin-bottom: 6px;
+      font-size: 15px;
+      font-weight: 760;
+      color: var(--text);
+    }
+
+    .pdf-result-text {
+      margin: 0 0 12px;
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.45;
+    }
+
+    .share-actions {
+      display: grid;
+      gap: 9px;
+    }
+
+    .share-button {
+      min-height: 46px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      text-decoration: none;
+      text-align: center;
+      padding: 12px 14px;
+    }
+
     .voice-status {
       margin: 8px 0 0;
       color: var(--muted);
@@ -997,6 +1039,7 @@
         sto: loadSavedValue("carcitypro_sto"),
         master: loadSavedValue("carcitypro_master"),
         masterPhone: loadSavedValue("carcitypro_master_phone"),
+        clientPhone: "",
         carBrand: "",
         carModel: "",
         carYear: "",
@@ -2749,6 +2792,21 @@
               <span class="field-hint">Номер необязательный, но тоже сохранится.</span>
             </label>
 
+            <label class="field">
+              <span class="field-label">Номер телефона клиента</span>
+              <input
+                class="field-input"
+                id="clientPhoneInput"
+                type="tel"
+                inputmode="tel"
+                maxlength="50"
+                autocomplete="tel"
+                placeholder="Например: +7 701 123 45 67"
+                value="${escapeAttr(state.actInfo.clientPhone)}"
+              >
+              <span class="field-hint">Нужен только для кнопки “Отправить клиенту в WhatsApp”. В PDF не попадёт.</span>
+            </label>
+
             <div class="field">
               <span class="field-label">Марка</span>
               <div class="suggest-wrap">
@@ -2961,6 +3019,65 @@
       go("itemDetails");
     }
 
+    function openExternalUrl(url) {
+      if (!url) return;
+
+      try {
+        if (tg?.openLink) {
+          tg.openLink(url);
+          return;
+        }
+      } catch (_) {}
+
+      window.open(url, "_blank", "noopener");
+    }
+
+    function showPdfResult(status, result) {
+      if (!status) return;
+
+      if (!result.public_url) {
+        status.className = "pdf-status error";
+        status.textContent = `PDF отправлен в Telegram, но ссылка для клиента не создана. Акт №${result.act_number}. Проверьте базу данных.`;
+        return;
+      }
+
+      const whatsappButton = result.whatsapp_url
+        ? `<button class="primary share-button" type="button" data-action="share-whatsapp">Отправить клиенту в WhatsApp</button>`
+        : "";
+
+      status.className = "pdf-status success";
+      status.innerHTML = `
+        <div class="pdf-result">
+          <strong class="pdf-result-title">PDF готов. Акт №${escapeAttr(result.act_number)}</strong>
+          <p class="pdf-result-text">
+            PDF отправлен тебе в Telegram. Клиенту можно отправить ссылку на акт:
+            он откроет страницу и сам скачает PDF.
+          </p>
+
+          <div class="share-actions">
+            ${whatsappButton}
+            <button class="secondary share-button" type="button" data-action="open-public-act">
+              Открыть страницу акта
+            </button>
+            <a class="secondary share-button" href="${escapeAttr(result.public_pdf_url || "")}" target="_blank" rel="noopener">
+              Открыть PDF
+            </a>
+          </div>
+        </div>
+      `;
+
+      status.querySelector('[data-action="share-whatsapp"]')?.addEventListener("click", () => {
+        haptic();
+        openExternalUrl(result.whatsapp_url);
+      });
+
+      status.querySelector('[data-action="open-public-act"]')?.addEventListener("click", () => {
+        haptic();
+        openExternalUrl(result.public_url);
+      });
+
+    }
+
     async function generatePdfAct(button) {
       const status = document.getElementById("pdfStatus");
 
@@ -3004,6 +3121,7 @@
             sto: state.actInfo.sto.trim(),
             master: state.actInfo.master.trim(),
             master_phone: state.actInfo.masterPhone.trim(),
+            client_phone: state.actInfo.clientPhone.trim(),
             car: buildCarText(),
             car_brand: state.actInfo.carBrand.trim(),
             car_model: state.actInfo.carModel.trim(),
@@ -3021,24 +3139,7 @@
         }
 
         haptic("medium");
-
-        if (status) {
-          status.className = "pdf-status";
-          status.textContent = `PDF отправлен в Telegram. Акт №${result.act_number}`;
-        }
-
-        if (tg.showPopup) {
-          tg.showPopup(
-            {
-              title: "PDF готов",
-              message: "Акт дефектовки отправлен сообщением в чат с CarcityPRO.",
-              buttons: [{ id: "ok", type: "ok" }]
-            },
-            () => tg.close()
-          );
-        } else {
-          alert("PDF отправлен в чат с CarcityPRO.");
-        }
+        showPdfResult(status, result);
       } catch (error) {
         console.error(error);
 
@@ -3341,6 +3442,7 @@
       const stoInput = document.getElementById("stoInput");
       const masterInput = document.getElementById("masterInput");
       const masterPhoneInput = document.getElementById("masterPhoneInput");
+      const clientPhoneInput = document.getElementById("clientPhoneInput");
       const carBrandInput = document.getElementById("carBrandInput");
       const carModelInput = document.getElementById("carModelInput");
       const carYearInput = document.getElementById("carYearInput");
@@ -3364,6 +3466,12 @@
         masterPhoneInput.addEventListener("input", () => {
           state.actInfo.masterPhone = masterPhoneInput.value;
           saveValue("carcitypro_master_phone", masterPhoneInput.value);
+        });
+      }
+
+      if (clientPhoneInput) {
+        clientPhoneInput.addEventListener("input", () => {
+          state.actInfo.clientPhone = clientPhoneInput.value;
         });
       }
 
