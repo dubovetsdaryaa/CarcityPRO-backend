@@ -360,7 +360,7 @@ app.add_middleware(
     allow_origins=[GITHUB_PAGES_ORIGIN],
     allow_credentials=False,
     allow_methods=["GET", "POST", "OPTIONS"],
-    allow_headers=["Content-Type"],
+    allow_headers=["Content-Type", "X-Telegram-Init-Data"],
 )
 
 
