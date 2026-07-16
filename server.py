@@ -11,13 +11,14 @@ from contextlib import asynccontextmanager
 from datetime import datetime
 from html import escape
 from pathlib import Path
-from urllib.parse import parse_qsl
+from urllib.parse import parse_qsl, quote
 from zoneinfo import ZoneInfo
 
 import httpx
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
+from fastapi.responses import HTMLResponse, Response
 from pydantic import BaseModel, Field
 
 from database import (
@@ -25,6 +26,7 @@ from database import (
     get_acts_count,
     get_acts_page,
     get_all_acts_for_export,
+    get_public_act_by_token,
     get_stats,
     get_top_users,
     init_database,
@@ -142,6 +144,7 @@ class GenerateActRequest(BaseModel):
     sto: str = Field(default="", max_length=150)
     master: str = Field(default="", max_length=150)
     master_phone: str = Field(default="", max_length=50)
+    client_phone: str = Field(default="", max_length=50)
     car: str = Field(default="", max_length=200)
     car_brand: str = Field(default="", max_length=80)
     car_model: str = Field(default="", max_length=120)
@@ -553,6 +556,407 @@ def user_label(row: dict) -> str:
     ) or f"ID {row.get('telegram_id')}"
 
 
+def normalize_whatsapp_phone(phone: str) -> str:
+    digits = "".join(ch for ch in str(phone or "") if ch.isdigit())
+
+    if len(digits) == 11 and digits.startswith("8"):
+        return "7" + digits[1:]
+
+    if len(digits) == 10:
+        return "7" + digits
+
+    return digits
+
+
+def build_client_message(
+    *,
+    public_url: str,
+    sto: str,
+    master: str,
+    master_phone: str,
+    car: str,
+    act_number: str,
+) -> str:
+    lines = [
+        "Здравствуйте! По вашему автомобилю подготовлен акт дефектовки.",
+    ]
+
+    if car:
+        lines[0] = f"Здравствуйте! По вашему автомобилю {car} подготовлен акт дефектовки."
+
+    lines.extend(
+        [
+            "",
+            "Посмотреть и скачать акт:",
+            public_url,
+            "",
+        ]
+    )
+
+    if sto:
+        lines.append(f"СТО: {sto}")
+
+    if master:
+        lines.append(f"Мастер: {master}")
+
+    if master_phone:
+        lines.append(f"Телефон мастера: {master_phone}")
+
+    lines.append(f"Акт №{act_number}")
+
+    return "\n".join(lines)
+
+
+def build_whatsapp_url(
+    *,
+    client_phone: str,
+    message: str,
+) -> str:
+    encoded_text = quote(message, safe="")
+    whatsapp_phone = normalize_whatsapp_phone(client_phone)
+
+    if whatsapp_phone:
+        return f"https://wa.me/{whatsapp_phone}?text={encoded_text}"
+
+    return f"https://wa.me/?text={encoded_text}"
+
+
+def clean_public_token(token: str) -> str:
+    return "".join(
+        ch
+        for ch in str(token or "")
+        if ch.isalnum() or ch in {"-", "_"}
+    )
+
+
+def row_items(row: dict) -> list[dict]:
+    items = row.get("items") or []
+
+    if isinstance(items, str):
+        try:
+            loaded = json.loads(items)
+            items = loaded
+        except json.JSONDecodeError:
+            items = []
+
+    if not isinstance(items, list):
+        return []
+
+    return [
+        item
+        for item in items
+        if isinstance(item, dict)
+    ]
+
+
+def build_act_info_from_row(row: dict) -> dict:
+    return {
+        "sto": str(row.get("sto") or ""),
+        "master": str(row.get("master") or ""),
+        "master_phone": str(row.get("master_phone") or ""),
+        "car": str(row.get("car") or ""),
+        "car_brand": str(row.get("car_brand") or ""),
+        "car_model": str(row.get("car_model") or ""),
+        "car_year": str(row.get("car_year") or ""),
+        "mileage": str(row.get("mileage") or ""),
+        "comment": str(row.get("comment") or ""),
+    }
+
+
+def build_public_act_html(row: dict) -> str:
+    token = clean_public_token(str(row.get("public_token") or ""))
+    act_number = str(row.get("act_number") or "")
+    public_pdf_url = f"{PUBLIC_BASE_URL}/act/{token}/pdf"
+
+    sto = str(row.get("sto") or "")
+    master = str(row.get("master") or "")
+    master_phone = str(row.get("master_phone") or "")
+    car = str(row.get("car") or "")
+    mileage = str(row.get("mileage") or "")
+    comment = str(row.get("comment") or "")
+    created_at = row.get("created_at")
+
+    if hasattr(created_at, "astimezone"):
+        created_text = created_at.astimezone(ALMATY_TZ).strftime("%d.%m.%Y %H:%M")
+    else:
+        created_text = ""
+
+    details = []
+
+    for label, value in [
+        ("СТО", sto),
+        ("Мастер", master),
+        ("Телефон мастера", master_phone),
+        ("Автомобиль", car),
+        ("Пробег", f"{mileage} км" if mileage else ""),
+        ("Дата", created_text),
+    ]:
+        if value:
+            details.append(
+                f"<div class='row'><span>{escape(label)}</span><b>{escape(value)}</b></div>"
+            )
+
+    item_cards = []
+
+    for index, item in enumerate(row_items(row), start=1):
+        title = str(item.get("item") or "")
+        position = str(item.get("position") or "")
+        group = str(item.get("group") or "")
+        mode = "Автозапчасть" if item.get("mode") == "parts" else "Услуга СТО"
+        quantity = str(item.get("quantity") or "")
+        price = str(item.get("price") or "")
+
+        subtitle_parts = [
+            mode,
+            group,
+        ]
+
+        if position:
+            subtitle_parts.append(position)
+
+        meta = " · ".join(part for part in subtitle_parts if part)
+
+        extra = []
+
+        if quantity:
+            extra.append(f"Кол-во: {quantity}")
+
+        if price:
+            extra.append(f"Цена: {price} ₸")
+
+        item_cards.append(
+            "<div class='item'>"
+            f"<strong>{index}. {escape(title)}</strong>"
+            f"<span>{escape(meta)}</span>"
+            + (
+                f"<em>{escape(' · '.join(extra))}</em>"
+                if extra
+                else ""
+            )
+            + "</div>"
+        )
+
+    call_phone = ""
+
+    if master_phone:
+        digits = "".join(ch for ch in master_phone if ch.isdigit() or ch == "+")
+        call_phone = (
+            f"<a class='button secondary' href='tel:{escape(digits)}'>"
+            "Позвонить мастеру"
+            "</a>"
+        )
+
+    comment_block = ""
+
+    if comment:
+        comment_block = (
+            "<div class='comment'>"
+            "<span>Комментарий мастера</span>"
+            f"<p>{escape(comment)}</p>"
+            "</div>"
+        )
+
+    return f"""<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="color-scheme" content="light">
+  <title>Акт дефектовки №{escape(act_number)}</title>
+  <style>
+    :root {{
+      --green: #007C5A;
+      --orange: #F9B041;
+      --text: #101318;
+      --muted: #697386;
+      --line: #E7EBF1;
+      --page: #F5F7FA;
+      --card: #FFFFFF;
+    }}
+
+    * {{
+      box-sizing: border-box;
+    }}
+
+    body {{
+      margin: 0;
+      background: var(--page);
+      color: var(--text);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
+    }}
+
+    .wrap {{
+      max-width: 620px;
+      margin: 0 auto;
+      padding: 22px 16px 34px;
+    }}
+
+    .card {{
+      background: var(--card);
+      border: 1px solid var(--line);
+      border-radius: 18px;
+      padding: 20px;
+      box-shadow: 0 8px 24px rgba(16, 24, 40, .06);
+    }}
+
+    .brand {{
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      color: var(--green);
+      font-weight: 800;
+      margin-bottom: 14px;
+    }}
+
+    h1 {{
+      margin: 0 0 8px;
+      font-size: 25px;
+      line-height: 1.2;
+    }}
+
+    .sub {{
+      margin: 0 0 18px;
+      color: var(--muted);
+      font-size: 15px;
+      line-height: 1.45;
+    }}
+
+    .row {{
+      display: grid;
+      gap: 5px;
+      padding: 12px 0;
+      border-top: 1px solid var(--line);
+    }}
+
+    .row span,
+    .comment span {{
+      color: var(--muted);
+      font-size: 13px;
+    }}
+
+    .row b {{
+      font-size: 15px;
+      font-weight: 680;
+    }}
+
+    .actions {{
+      display: grid;
+      gap: 10px;
+      margin: 18px 0;
+    }}
+
+    .button {{
+      min-height: 48px;
+      border-radius: 12px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 12px 14px;
+      text-align: center;
+      font-size: 15px;
+      font-weight: 700;
+      text-decoration: none;
+    }}
+
+    .primary {{
+      background: var(--green);
+      color: #fff;
+    }}
+
+    .secondary {{
+      border: 1.5px solid var(--green);
+      background: #fff;
+      color: var(--green);
+    }}
+
+    .items-title {{
+      margin: 20px 0 10px;
+      font-size: 18px;
+      font-weight: 800;
+    }}
+
+    .item {{
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      padding: 13px 14px;
+      margin-top: 10px;
+      background: #fff;
+    }}
+
+    .item strong,
+    .item span,
+    .item em {{
+      display: block;
+    }}
+
+    .item strong {{
+      font-size: 15px;
+      margin-bottom: 5px;
+    }}
+
+    .item span {{
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.35;
+    }}
+
+    .item em {{
+      margin-top: 6px;
+      color: var(--text);
+      font-style: normal;
+      font-size: 13px;
+      font-weight: 650;
+    }}
+
+    .comment {{
+      margin-top: 18px;
+      padding: 14px;
+      border-radius: 14px;
+      background: #F7FAF9;
+      border: 1px solid #D7EEE7;
+    }}
+
+    .comment p {{
+      margin: 6px 0 0;
+      line-height: 1.45;
+      font-size: 14px;
+    }}
+
+    .footer {{
+      margin-top: 16px;
+      color: var(--muted);
+      text-align: center;
+      font-size: 12px;
+    }}
+  </style>
+</head>
+<body>
+  <main class="wrap">
+    <section class="card">
+      <div class="brand">🚗 CarcityPRO</div>
+      <h1>Акт дефектовки №{escape(act_number)}</h1>
+      <p class="sub">Документ подготовлен СТО. Его можно посмотреть или скачать в формате PDF.</p>
+
+      {''.join(details)}
+
+      <div class="actions">
+        <a class="button primary" href="{escape(public_pdf_url)}" target="_blank" rel="noopener">Скачать PDF</a>
+        {call_phone}
+        <a class="button secondary" href="https://carcity.kz/category/avtozapcasti" target="_blank" rel="noopener">Открыть каталог запчастей</a>
+      </div>
+
+      <div class="items-title">Позиции</div>
+      {''.join(item_cards) if item_cards else '<p class="sub">Позиции не указаны.</p>'}
+
+      {comment_block}
+    </section>
+
+    <div class="footer">Сформировано в CarcityPRO</div>
+  </main>
+</body>
+</html>"""
+
+
 async def send_start_message(chat_id: int) -> None:
     text = (
         "👋 <b>Добро пожаловать в CarcityPRO!</b>\n\n"
@@ -879,6 +1283,7 @@ async def send_pdf_to_telegram(
     filename: str,
     act_number: str,
     item_count: int,
+    public_url: str = "",
 ) -> None:
     url = f"{TELEGRAM_API_URL}/sendDocument"
 
@@ -887,7 +1292,12 @@ async def send_pdf_to_telegram(
         "caption": (
             f"📄 Акт дефектовки №{act_number}\n"
             f"Позиций: {item_count}\n\n"
-            "Сформировано в CarcityPRO"
+            + (
+                f"Ссылка для клиента:\n{public_url}\n\n"
+                if public_url
+                else ""
+            )
+            + "Сформировано в CarcityPRO"
         ),
     }
 
@@ -1118,6 +1528,67 @@ async def voice_transcribe(payload: VoiceTranscribeRequest) -> dict:
     }
 
 
+@app.get("/act/{public_token}", response_class=HTMLResponse)
+async def public_act_page(public_token: str) -> HTMLResponse:
+    token = clean_public_token(public_token)
+
+    if not token:
+        raise HTTPException(status_code=404, detail="Act not found.")
+
+    try:
+        row = await get_public_act_by_token(token)
+    except Exception as error:
+        print(f"ERROR: public act page failed: {error}")
+        raise HTTPException(
+            status_code=503,
+            detail="Act storage is temporarily unavailable.",
+        )
+
+    if not row:
+        raise HTTPException(status_code=404, detail="Act not found.")
+
+    return HTMLResponse(build_public_act_html(row))
+
+
+@app.get("/act/{public_token}/pdf")
+async def public_act_pdf(public_token: str) -> Response:
+    token = clean_public_token(public_token)
+
+    if not token:
+        raise HTTPException(status_code=404, detail="Act not found.")
+
+    try:
+        row = await get_public_act_by_token(token)
+    except Exception as error:
+        print(f"ERROR: public act PDF failed: {error}")
+        raise HTTPException(
+            status_code=503,
+            detail="Act storage is temporarily unavailable.",
+        )
+
+    if not row:
+        raise HTTPException(status_code=404, detail="Act not found.")
+
+    act_number = str(row.get("act_number") or "act")
+    items = row_items(row)
+
+    pdf_bytes = generate_act_pdf(
+        items=items,
+        act_number=act_number,
+        act_info=build_act_info_from_row(row),
+    )
+
+    filename = f"CarcityPRO_act_{act_number}.pdf"
+
+    return Response(
+        content=pdf_bytes,
+        media_type="application/pdf",
+        headers={
+            "Content-Disposition": f'inline; filename="{filename}"',
+        },
+    )
+
+
 @app.post("/api/generate-act")
 async def generate_act(payload: GenerateActRequest) -> dict:
     telegram = validate_telegram_init_data(payload.init_data)
@@ -1127,6 +1598,10 @@ async def generate_act(payload: GenerateActRequest) -> dict:
         + "-"
         + secrets.token_hex(2).upper()
     )
+
+    public_token = secrets.token_urlsafe(18)
+    public_url = f"{PUBLIC_BASE_URL}/act/{public_token}"
+    public_pdf_url = f"{public_url}/pdf"
 
     items = [
         item.model_dump()
@@ -1157,6 +1632,7 @@ async def generate_act(payload: GenerateActRequest) -> dict:
         filename=filename,
         act_number=act_number,
         item_count=len(items),
+        public_url=public_url,
     )
 
     stored = False
@@ -1168,6 +1644,8 @@ async def generate_act(payload: GenerateActRequest) -> dict:
             sto=payload.sto.strip(),
             master=payload.master.strip(),
             master_phone=payload.master_phone.strip(),
+            client_phone=payload.client_phone.strip(),
+            public_token=public_token,
             car=payload.car.strip(),
             car_brand=payload.car_brand.strip(),
             car_model=payload.car_model.strip(),
@@ -1179,9 +1657,33 @@ async def generate_act(payload: GenerateActRequest) -> dict:
     except Exception as error:
         print(f"WARNING: act analytics failed: {error}")
 
+    if stored:
+        client_message = build_client_message(
+            public_url=public_url,
+            sto=payload.sto.strip(),
+            master=payload.master.strip(),
+            master_phone=payload.master_phone.strip(),
+            car=payload.car.strip(),
+            act_number=act_number,
+        )
+
+        whatsapp_url = build_whatsapp_url(
+            client_phone=payload.client_phone.strip(),
+            message=client_message,
+        )
+    else:
+        client_message = ""
+        whatsapp_url = ""
+        public_url = ""
+        public_pdf_url = ""
+
     return {
         "ok": True,
         "act_number": act_number,
         "items_count": len(items),
         "stored": stored,
+        "public_url": public_url,
+        "public_pdf_url": public_pdf_url,
+        "whatsapp_url": whatsapp_url,
+        "client_message": client_message,
     }

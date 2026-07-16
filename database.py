@@ -64,6 +64,8 @@ async def init_database(max_attempts: int = 20) -> bool:
             sto TEXT,
             master TEXT,
             master_phone TEXT,
+            client_phone TEXT,
+            public_token TEXT UNIQUE,
             car TEXT,
             car_brand TEXT,
             car_model TEXT,
@@ -78,6 +80,14 @@ async def init_database(max_attempts: int = 20) -> bool:
         """
         ALTER TABLE acts
         ADD COLUMN IF NOT EXISTS master_phone TEXT
+        """,
+        """
+        ALTER TABLE acts
+        ADD COLUMN IF NOT EXISTS client_phone TEXT
+        """,
+        """
+        ALTER TABLE acts
+        ADD COLUMN IF NOT EXISTS public_token TEXT
         """,
         """
         ALTER TABLE acts
@@ -106,6 +116,11 @@ async def init_database(max_attempts: int = 20) -> bool:
         """
         CREATE INDEX IF NOT EXISTS idx_events_telegram_created_at
         ON events (telegram_id, created_at DESC)
+        """,
+        """
+        CREATE UNIQUE INDEX IF NOT EXISTS idx_acts_public_token
+        ON acts (public_token)
+        WHERE public_token IS NOT NULL
         """,
         """
         CREATE INDEX IF NOT EXISTS idx_acts_created_at
@@ -213,6 +228,8 @@ async def record_sent_act(
     sto: str,
     master: str,
     master_phone: str,
+    client_phone: str,
+    public_token: str,
     car: str,
     car_brand: str,
     car_model: str,
@@ -235,6 +252,8 @@ async def record_sent_act(
                 sto,
                 master,
                 master_phone,
+                client_phone,
+                public_token,
                 car,
                 car_brand,
                 car_model,
@@ -244,7 +263,7 @@ async def record_sent_act(
                 items_count,
                 items
             )
-            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
             ON CONFLICT (act_number) DO NOTHING
             """,
             (
@@ -253,6 +272,8 @@ async def record_sent_act(
                 sto or None,
                 master or None,
                 master_phone or None,
+                client_phone or None,
+                public_token or None,
                 car or None,
                 car_brand or None,
                 car_model or None,
@@ -288,6 +309,7 @@ async def record_sent_act(
                 Jsonb(
                     {
                         "act_number": act_number,
+                        "public_token": public_token,
                         "items_count": len(items),
                     }
                 ),
@@ -385,6 +407,8 @@ async def get_acts_page(
                 a.sto,
                 a.master,
                 a.master_phone,
+                a.client_phone,
+                a.public_token,
                 a.car,
                 a.car_brand,
                 a.car_model,
@@ -423,6 +447,8 @@ async def get_all_acts_for_export() -> list[dict[str, Any]]:
                 a.sto,
                 a.master,
                 a.master_phone,
+                a.client_phone,
+                a.public_token,
                 a.car,
                 a.car_brand,
                 a.car_model,
@@ -445,6 +471,52 @@ async def get_all_acts_for_export() -> list[dict[str, Any]]:
         rows = await cursor.fetchall()
 
     return list(rows)
+
+
+async def get_public_act_by_token(public_token: str) -> dict[str, Any] | None:
+    if not database_enabled():
+        raise RuntimeError("Database storage is disabled.")
+
+    safe_token = str(public_token or "").strip()
+
+    if not safe_token:
+        return None
+
+    async with await _connect() as conn:
+        row = await (
+            await conn.execute(
+                """
+                SELECT
+                    a.act_number,
+                    a.sto,
+                    a.master,
+                    a.master_phone,
+                    a.client_phone,
+                    a.public_token,
+                    a.car,
+                    a.car_brand,
+                    a.car_model,
+                    a.car_year,
+                    a.mileage,
+                    a.comment,
+                    a.items_count,
+                    a.items,
+                    a.created_at,
+                    u.telegram_id,
+                    u.first_name,
+                    u.last_name,
+                    u.username
+                FROM acts a
+                LEFT JOIN users u
+                    ON u.telegram_id = a.telegram_id
+                WHERE a.public_token = %s
+                LIMIT 1
+                """,
+                (safe_token,),
+            )
+        ).fetchone()
+
+    return dict(row) if row else None
 
 
 async def get_top_users(limit: int = 10) -> list[dict[str, Any]]:
