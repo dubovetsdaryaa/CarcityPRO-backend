@@ -2112,21 +2112,24 @@
         flags = voicePositionFlags(afterText);
       }
 
-      const matchesByPosition = available.filter(position => {
-        const positionText = normalizeSearch(position);
+      const matchesByPosition = available
+        .map(position => cleanPositionValue(position))
+        .filter(Boolean)
+        .filter(position => {
+          const positionText = normalizeSearch(position);
 
-        if (flags.hasFront && !positionText.includes("перед")) return false;
-        if (flags.hasRear && !positionText.includes("зад")) return false;
-        if (flags.hasLeft && !positionText.includes("лев")) return false;
-        if (flags.hasRight && !positionText.includes("прав")) return false;
-        if (flags.hasUpper && !positionText.includes("верх")) return false;
-        if (flags.hasLower && !positionText.includes("ниж")) return false;
+          if (flags.hasFront && !positionText.includes("перед")) return false;
+          if (flags.hasRear && !positionText.includes("зад")) return false;
+          if (flags.hasLeft && !positionText.includes("лев")) return false;
+          if (flags.hasRight && !positionText.includes("прав")) return false;
+          if (flags.hasUpper && !positionText.includes("верх")) return false;
+          if (flags.hasLower && !positionText.includes("ниж")) return false;
 
-        return hasAnyVoicePositionFlag(flags);
-      });
+          return hasAnyVoicePositionFlag(flags);
+        });
 
       if (matchesByPosition.length) {
-        return matchesByPosition;
+        return [...new Set(matchesByPosition)];
       }
 
       return [null];
@@ -2137,7 +2140,7 @@
         candidate.mode,
         candidate.group,
         candidate.item,
-        candidate.position || ""
+        cleanPositionValue(candidate.position) || ""
       ].join("|");
     }
 
@@ -2164,7 +2167,7 @@
               mode: match.mode,
               group: match.group,
               item: match.item,
-              position,
+              position: cleanPositionValue(position) || null,
               quantity: "",
               price: "",
               selected: true
@@ -2351,9 +2354,12 @@
             <div class="pending-list">
               ${state.pendingItems.map((item, index) => `
                 <div class="pending-card">
-                  <p class="pending-title">${escapeAttr(item.position || item.item)}</p>
+                  <p class="pending-title">
+                    ${escapeAttr(item.item)}
+                    ${cleanPositionValue(item.position) ? ` — ${escapeAttr(cleanPositionValue(item.position))}` : ""}
+                  </p>
                   <p class="pending-subtitle">
-                    ${item.mode === "parts" ? "Автозапчасть" : "Услуга СТО"} → ${escapeAttr(item.group)} → ${escapeAttr(item.item)}
+                    ${item.mode === "parts" ? "Автозапчасть" : "Услуга СТО"} → ${escapeAttr(item.group)}
                   </p>
 
                   <div class="act-item-fields">
@@ -2488,11 +2494,13 @@
                         ${candidate.selected ? "checked" : ""}
                       >
                       <span>
-                        <strong>${escapeAttr(candidate.position || candidate.item)}</strong>
+                        <strong>
+                          ${escapeAttr(candidate.item)}
+                          ${cleanPositionValue(candidate.position) ? ` — ${escapeAttr(cleanPositionValue(candidate.position))}` : ""}
+                        </strong>
                         <span>
                           ${candidate.mode === "parts" ? "Автозапчасть" : "Услуга СТО"}
                           → ${escapeAttr(candidate.group)}
-                          → ${escapeAttr(candidate.item)}
                         </span>
                       </span>
                     </label>
@@ -2645,7 +2653,10 @@
                 ${state.added.map((item, index) => `
                   <div class="act-card">
                     <div class="act-card-head">
-                      <strong>${index + 1}. ${item.position || item.item}</strong>
+                      <strong>
+                        ${index + 1}. ${escapeAttr(item.item)}
+                        ${cleanPositionValue(item.position) ? ` — ${escapeAttr(cleanPositionValue(item.position))}` : ""}
+                      </strong>
                       <label class="act-select">
                         <input
                           type="checkbox"
@@ -2657,7 +2668,10 @@
                         <span>Выбрать</span>
                       </label>
                     </div>
-                    <span>${item.mode === "parts" ? "Автозапчасть" : "Услуга СТО"} → ${item.group} → ${item.item}</span>
+                    <span>
+                      ${item.mode === "parts" ? "Автозапчасть" : "Услуга СТО"}
+                      → ${escapeAttr(item.group)}
+                    </span>
 
                     <div class="act-item-fields">
                       <label class="item-field">
@@ -2828,14 +2842,14 @@
             car_year: state.actInfo.carYear.trim(),
             mileage: state.actInfo.mileage.trim(),
             comment: state.actInfo.comment.trim(),
-            items: state.added
+            items: state.added.map(cleanActItem)
           })
         });
 
         const result = await response.json().catch(() => ({}));
 
         if (!response.ok) {
-          throw new Error(result.detail || "Не удалось сформировать PDF.");
+          throw new Error(formatErrorDetail(result.detail) || "Не удалось сформировать PDF.");
         }
 
         haptic("medium");
@@ -3533,11 +3547,8 @@
         el.addEventListener("click", () => {
           const candidates = (state.voiceCandidates || [])
             .filter(candidate => candidate.selected)
-            .map(candidate => ({
-              mode: candidate.mode,
-              group: candidate.group,
-              item: candidate.item,
-              position: candidate.position || null,
+            .map(candidate => cleanActItem({
+              ...candidate,
               quantity: "",
               price: ""
             }));
@@ -3585,7 +3596,7 @@
         mode: state.mode,
         group: state.group,
         item: state.item,
-        position,
+        position: cleanPositionValue(position) || null,
         quantity: "",
         price: ""
       };
@@ -3628,11 +3639,11 @@
       state.pendingItems.forEach((item, index) => {
         const detail = Array.isArray(details) ? details[index] : null;
 
-        const enrichedItem = {
+        const enrichedItem = cleanActItem({
           ...item,
           quantity: String(detail?.quantity ?? quantity ?? "").trim(),
           price: String(detail?.price ?? price ?? "").trim()
-        };
+        });
 
         if (!itemAlreadyAdded(enrichedItem)) {
           state.added.push(enrichedItem);
@@ -3653,6 +3664,65 @@
         .replaceAll("<", "&lt;")
         .replaceAll(">", "&gt;");
     }
+
+    function optionTitle(value) {
+      if (Array.isArray(value)) {
+        return String(value[0] || "").trim();
+      }
+
+      if (value && typeof value === "object") {
+        return String(value.title || value.name || value.value || "").trim();
+      }
+
+      return String(value || "").trim();
+    }
+
+    function cleanPositionValue(value) {
+      const title = optionTitle(value);
+      return title ? title.replace(/[,.]+$/g, "").trim() : "";
+    }
+
+    function cleanActItem(item) {
+      return {
+        mode: String(item?.mode || "").trim(),
+        group: String(item?.group || "").trim(),
+        item: String(item?.item || "").trim(),
+        position: cleanPositionValue(item?.position) || null,
+        quantity: String(item?.quantity || "").trim(),
+        price: String(item?.price || "").trim()
+      };
+    }
+
+    function formatErrorDetail(detail) {
+      if (!detail) return "";
+
+      if (typeof detail === "string") {
+        return detail;
+      }
+
+      if (Array.isArray(detail)) {
+        return detail
+          .map(error => {
+            if (typeof error === "string") return error;
+
+            const path = Array.isArray(error?.loc)
+              ? error.loc.join(".")
+              : "";
+
+            const message = error?.msg || error?.message || JSON.stringify(error);
+
+            return path ? `${path}: ${message}` : message;
+          })
+          .join("; ");
+      }
+
+      if (typeof detail === "object") {
+        return detail.message || detail.msg || detail.error || JSON.stringify(detail);
+      }
+
+      return String(detail);
+    }
+
 
     loadData();
   </script>
