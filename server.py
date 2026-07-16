@@ -1016,7 +1016,9 @@ async def telegram_webhook(request: Request) -> dict:
 
 @app.post("/api/voice-transcribe")
 async def voice_transcribe(request: Request) -> dict:
-    init_data = request.headers.get("X-Telegram-Init-Data", "").strip()
+    form = await request.form()
+
+    init_data = str(form.get("init_data") or "").strip()
 
     if not init_data:
         raise HTTPException(
@@ -1026,7 +1028,15 @@ async def voice_transcribe(request: Request) -> dict:
 
     validate_telegram_init_data(init_data)
 
-    audio_bytes = await request.body()
+    audio_upload = form.get("audio")
+
+    if audio_upload is None or not hasattr(audio_upload, "read"):
+        raise HTTPException(
+            status_code=400,
+            detail="Audio file is missing.",
+        )
+
+    audio_bytes = await audio_upload.read()
 
     if not audio_bytes:
         raise HTTPException(
@@ -1040,7 +1050,11 @@ async def voice_transcribe(request: Request) -> dict:
             detail="Audio is too large. Please record a shorter voice note.",
         )
 
-    content_type = request.headers.get("content-type", "application/octet-stream")
+    content_type = str(
+        form.get("content_type")
+        or getattr(audio_upload, "content_type", "")
+        or "audio/webm"
+    )
 
     text = await transcribe_audio_with_hf(
         audio_bytes=audio_bytes,
