@@ -3575,11 +3575,11 @@
           const detail = result.detail || result.error || "Не удалось распознать голос.";
 
           if (String(detail).includes("taking too long") || String(detail).includes("did not respond in time")) {
-            throw new Error("Hugging Face долго отвечает. Попробуйте ещё раз или введите текст вручную.");
+            throw new Error("Groq долго отвечает. Попробуйте ещё раз или введите текст вручную.");
           }
 
           if (String(detail).includes("temporarily unavailable")) {
-            throw new Error("Hugging Face временно недоступен. Попробуйте ещё раз чуть позже.");
+            throw new Error("Groq временно недоступен. Попробуйте ещё раз чуть позже.");
           }
 
           throw new Error(detail);
@@ -3662,7 +3662,7 @@
               }
 
               try {
-                state.voiceStatusText = "Распознаю голос через Hugging Face…";
+                state.voiceStatusText = "Распознаю голос через Groq…";
                 state.voiceStatusKind = "";
 
                 if (status) {
