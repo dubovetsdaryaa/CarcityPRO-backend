@@ -94,9 +94,16 @@ def load_admin_id() -> int:
         return 0
 
 
+def load_hf_token() -> str:
+    return os.environ.get("HF_TOKEN", "").strip()
+
+
 BOT_TOKEN = load_bot_token()
 ADMIN_TELEGRAM_ID = load_admin_id()
+HF_TOKEN = load_hf_token()
 TELEGRAM_API_URL = f"https://api.telegram.org/bot{BOT_TOKEN}"
+HF_API_URL = "https://api-inference.huggingface.co/models/openai/whisper-large-v3-turbo"
+MAX_VOICE_AUDIO_BYTES = 15 * 1024 * 1024
 
 WEBHOOK_SECRET = hashlib.sha256(
     BOT_TOKEN.encode("utf-8")
@@ -154,6 +161,77 @@ async def telegram_api(
         raise RuntimeError(f"{method}: {description}")
 
     return result
+
+
+async def transcribe_audio_with_hf(
+    *,
+    audio_bytes: bytes,
+    content_type: str,
+) -> str:
+    if not HF_TOKEN:
+        raise HTTPException(
+            status_code=500,
+            detail="HF_TOKEN is not configured in Render.",
+        )
+
+    headers = {
+        "Authorization": f"Bearer {HF_TOKEN}",
+        "Content-Type": content_type or "application/octet-stream",
+    }
+
+    params = {
+        "return_timestamps": "false",
+    }
+
+    async with httpx.AsyncClient(timeout=90.0) as client:
+        response = await client.post(
+            HF_API_URL,
+            headers=headers,
+            params=params,
+            content=audio_bytes,
+        )
+
+    if response.status_code == 503:
+        raise HTTPException(
+            status_code=503,
+            detail="Hugging Face model is loading. Try again in a minute.",
+        )
+
+    if response.status_code >= 400:
+        try:
+            error_data = response.json()
+        except Exception:
+            error_data = {"error": response.text[:300]}
+
+        raise HTTPException(
+            status_code=502,
+            detail=f"Hugging Face error: {error_data}",
+        )
+
+    try:
+        data = response.json()
+    except Exception:
+        raise HTTPException(
+            status_code=502,
+            detail="Hugging Face returned a non-JSON response.",
+        )
+
+    if isinstance(data, dict):
+        text = str(data.get("text") or "").strip()
+
+        if text:
+            return text
+
+        if data.get("error"):
+            raise HTTPException(
+                status_code=502,
+                detail=f"Hugging Face error: {data.get('error')}",
+            )
+
+    raise HTTPException(
+        status_code=502,
+        detail="Hugging Face did not return recognized text.",
+    )
 
 
 async def send_text_message(
@@ -932,6 +1010,45 @@ async def telegram_webhook(request: Request) -> dict:
         )
 
     return {"ok": True}
+
+
+@app.post("/api/voice-transcribe")
+async def voice_transcribe(request: Request) -> dict:
+    init_data = request.headers.get("X-Telegram-Init-Data", "").strip()
+
+    if not init_data:
+        raise HTTPException(
+            status_code=403,
+            detail="Telegram init data is required.",
+        )
+
+    validate_telegram_init_data(init_data)
+
+    audio_bytes = await request.body()
+
+    if not audio_bytes:
+        raise HTTPException(
+            status_code=400,
+            detail="Audio body is empty.",
+        )
+
+    if len(audio_bytes) > MAX_VOICE_AUDIO_BYTES:
+        raise HTTPException(
+            status_code=413,
+            detail="Audio is too large. Please record a shorter voice note.",
+        )
+
+    content_type = request.headers.get("content-type", "application/octet-stream")
+
+    text = await transcribe_audio_with_hf(
+        audio_bytes=audio_bytes,
+        content_type=content_type,
+    )
+
+    return {
+        "ok": True,
+        "text": text,
+    }
 
 
 @app.post("/api/generate-act")
