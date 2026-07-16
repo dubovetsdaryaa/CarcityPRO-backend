@@ -357,10 +357,12 @@ app = FastAPI(
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[GITHUB_PAGES_ORIGIN],
+    # Telegram WebView can send different Origin values depending on the client.
+    # We do not use cookies/credentials here, so wildcard CORS is safe for these API calls.
+    allow_origins=["*"],
     allow_credentials=False,
-    allow_methods=["GET", "POST", "OPTIONS"],
-    allow_headers=["Content-Type", "X-Telegram-Init-Data"],
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
 
 
