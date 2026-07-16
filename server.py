@@ -109,7 +109,7 @@ BOT_TOKEN = load_bot_token()
 ADMIN_TELEGRAM_ID = load_admin_id()
 HF_TOKEN = load_hf_token()
 TELEGRAM_API_URL = f"https://api.telegram.org/bot{BOT_TOKEN}"
-HF_API_URL = "https://router.huggingface.co/hf-inference/models/openai/whisper-large-v3"
+HF_API_URL = "https://router.huggingface.co/hf-inference/models/openai/whisper-large-v3-turbo"
 MAX_VOICE_AUDIO_BYTES = 15 * 1024 * 1024
 
 WEBHOOK_SECRET = hashlib.sha256(
@@ -201,53 +201,90 @@ async def transcribe_audio_with_hf(
         },
     }
 
+    last_status_code = 0
+    last_error_text = ""
+
     async with httpx.AsyncClient(timeout=120.0) as client:
-        response = await client.post(
-            HF_API_URL,
-            headers=headers,
-            json=payload,
-        )
+        for attempt in range(1, 4):
+            try:
+                response = await client.post(
+                    HF_API_URL,
+                    headers=headers,
+                    json=payload,
+                )
+            except httpx.HTTPError as error:
+                last_error_text = str(error)
+                if attempt < 3:
+                    continue
 
-    if response.status_code == 503:
-        raise HTTPException(
-            status_code=503,
-            detail="Hugging Face model is loading. Try again in a minute.",
-        )
+                raise HTTPException(
+                    status_code=502,
+                    detail="Hugging Face temporarily unavailable. Try again.",
+                )
 
-    if response.status_code >= 400:
-        try:
-            error_data = response.json()
-        except Exception:
-            error_data = {"error": response.text[:500]}
+            last_status_code = response.status_code
+            content_type_header = response.headers.get("content-type", "")
 
-        raise HTTPException(
-            status_code=502,
-            detail=f"Hugging Face error {response.status_code}: {error_data}",
-        )
+            if response.status_code in {503, 504} and attempt < 3:
+                continue
 
-    try:
-        data = response.json()
-    except Exception:
-        raise HTTPException(
-            status_code=502,
-            detail="Hugging Face returned a non-JSON response.",
-        )
+            if response.status_code == 503:
+                raise HTTPException(
+                    status_code=503,
+                    detail="Hugging Face model is loading. Try again in a minute.",
+                )
 
-    if isinstance(data, dict):
-        text = str(data.get("text") or "").strip()
+            if response.status_code == 504:
+                raise HTTPException(
+                    status_code=504,
+                    detail="Hugging Face did not respond in time. Please try recording again.",
+                )
 
-        if text:
-            return text
+            if response.status_code >= 400:
+                if "application/json" in content_type_header:
+                    try:
+                        error_data = response.json()
+                    except Exception:
+                        error_data = {"error": response.text[:300]}
+                else:
+                    error_data = {
+                        "error": "Hugging Face returned an HTML error page.",
+                        "status_code": response.status_code,
+                    }
 
-        if data.get("error"):
+                raise HTTPException(
+                    status_code=502,
+                    detail=f"Hugging Face error {response.status_code}: {error_data}",
+                )
+
+            try:
+                data = response.json()
+            except Exception:
+                raise HTTPException(
+                    status_code=502,
+                    detail="Hugging Face returned a non-JSON response.",
+                )
+
+            if isinstance(data, dict):
+                text = str(data.get("text") or "").strip()
+
+                if text:
+                    return text
+
+                if data.get("error"):
+                    raise HTTPException(
+                        status_code=502,
+                        detail=f"Hugging Face error: {data.get('error')}",
+                    )
+
             raise HTTPException(
                 status_code=502,
-                detail=f"Hugging Face error: {data.get('error')}",
+                detail=f"Hugging Face did not return recognized text: {data}",
             )
 
     raise HTTPException(
         status_code=502,
-        detail=f"Hugging Face did not return recognized text: {data}",
+        detail=f"Hugging Face failed after retries. Status: {last_status_code}. {last_error_text}",
     )
 
 
