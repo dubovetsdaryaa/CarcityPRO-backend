@@ -109,7 +109,7 @@ BOT_TOKEN = load_bot_token()
 ADMIN_TELEGRAM_ID = load_admin_id()
 HF_TOKEN = load_hf_token()
 TELEGRAM_API_URL = f"https://api.telegram.org/bot{BOT_TOKEN}"
-HF_API_URL = "https://api-inference.huggingface.co/models/openai/whisper-large-v3-turbo"
+HF_API_URL = "https://router.huggingface.co/hf-inference/models/openai/whisper-large-v3"
 MAX_VOICE_AUDIO_BYTES = 15 * 1024 * 1024
 
 WEBHOOK_SECRET = hashlib.sha256(
@@ -187,21 +187,25 @@ async def transcribe_audio_with_hf(
             detail="HF_TOKEN is not configured in Render.",
         )
 
+    audio_base64 = base64.b64encode(audio_bytes).decode("utf-8")
+
     headers = {
         "Authorization": f"Bearer {HF_TOKEN}",
-        "Content-Type": content_type or "application/octet-stream",
+        "Content-Type": "application/json",
     }
 
-    params = {
-        "return_timestamps": "false",
+    payload = {
+        "inputs": audio_base64,
+        "parameters": {
+            "return_timestamps": False,
+        },
     }
 
-    async with httpx.AsyncClient(timeout=90.0) as client:
+    async with httpx.AsyncClient(timeout=120.0) as client:
         response = await client.post(
             HF_API_URL,
             headers=headers,
-            params=params,
-            content=audio_bytes,
+            json=payload,
         )
 
     if response.status_code == 503:
@@ -214,11 +218,11 @@ async def transcribe_audio_with_hf(
         try:
             error_data = response.json()
         except Exception:
-            error_data = {"error": response.text[:300]}
+            error_data = {"error": response.text[:500]}
 
         raise HTTPException(
             status_code=502,
-            detail=f"Hugging Face error: {error_data}",
+            detail=f"Hugging Face error {response.status_code}: {error_data}",
         )
 
     try:
@@ -243,7 +247,7 @@ async def transcribe_audio_with_hf(
 
     raise HTTPException(
         status_code=502,
-        detail="Hugging Face did not return recognized text.",
+        detail=f"Hugging Face did not return recognized text: {data}",
     )
 
 
