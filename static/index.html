@@ -3541,22 +3541,48 @@
       async function transcribeVoiceBlob(blob) {
         const audioBase64 = await blobToBase64(blob);
 
-        const response = await fetch(`${API_URL}/api/voice-transcribe`, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json"
-          },
-          body: JSON.stringify({
-            init_data: tg?.initData || "",
-            content_type: blob.type || "audio/webm",
-            audio_base64: audioBase64
-          })
-        });
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 45000);
+
+        let response;
+
+        try {
+          response = await fetch(`${API_URL}/api/voice-transcribe`, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json"
+            },
+            signal: controller.signal,
+            body: JSON.stringify({
+              init_data: tg?.initData || "",
+              content_type: blob.type || "audio/webm",
+              audio_base64: audioBase64
+            })
+          });
+        } catch (error) {
+          if (error?.name === "AbortError") {
+            throw new Error("Распознавание заняло слишком много времени. Попробуйте ещё раз или введите текст вручную.");
+          }
+
+          throw error;
+        } finally {
+          clearTimeout(timeoutId);
+        }
 
         const result = await response.json().catch(() => ({}));
 
         if (!response.ok || !result.ok) {
-          throw new Error(result.detail || result.error || "Не удалось распознать голос.");
+          const detail = result.detail || result.error || "Не удалось распознать голос.";
+
+          if (String(detail).includes("taking too long") || String(detail).includes("did not respond in time")) {
+            throw new Error("Hugging Face долго отвечает. Попробуйте ещё раз или введите текст вручную.");
+          }
+
+          if (String(detail).includes("temporarily unavailable")) {
+            throw new Error("Hugging Face временно недоступен. Попробуйте ещё раз чуть позже.");
+          }
+
+          throw new Error(detail);
         }
 
         return cleanVoiceTranscript(result.text || "");
