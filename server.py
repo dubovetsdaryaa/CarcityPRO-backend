@@ -43,7 +43,7 @@ PUBLIC_BASE_URL = os.environ.get(
     "PUBLIC_BASE_URL",
     "https://carcitypro-backend.onrender.com",
 ).rstrip("/")
-MINI_APP_URL = "https://dubovetsdaryaa.github.io/CarcityPRO-app/?v=render-loader-v2"
+MINI_APP_URL = "https://dubovetsdaryaa.github.io/CarcityPRO-app/?v=render-loader-v3"
 STATIC_DIR = Path(__file__).resolve().parent / "static"
 WEBHOOK_PATH = "/telegram/webhook"
 
