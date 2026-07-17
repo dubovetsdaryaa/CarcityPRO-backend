@@ -485,6 +485,31 @@
       margin: 18px 0 22px;
     }
 
+    .voice-section {
+      display: grid;
+      gap: 10px;
+      margin-top: 18px;
+    }
+
+    .voice-section + .voice-section {
+      margin-top: 20px;
+    }
+
+    .voice-section-title {
+      margin: 0;
+      color: #303846;
+      font-size: 17px;
+      font-weight: 820;
+      line-height: 1.25;
+    }
+
+    .voice-section-hint {
+      margin: -4px 0 0;
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.35;
+    }
+
     .voice-card {
       display: grid;
       grid-template-columns: 28px 1fr;
@@ -2222,6 +2247,61 @@
       ].join("|");
     }
 
+    function segmentIncludesItemTitle(segment, itemTitle) {
+      const segmentText = normalizeSearch(segment);
+      const titleText = normalizeSearch(itemTitle);
+
+      return titleText.length > 2 && segmentText.includes(titleText);
+    }
+
+    function exactVoiceCandidateFromMatch(segment, match, matches, matchIndex) {
+      if (!segmentIncludesItemTitle(segment, match.item)) {
+        return null;
+      }
+
+      const available = availableVoicePositions(match.item, match.mode);
+      const flags = voicePositionContextFlags(segment, match, matches, matchIndex);
+      const hasExplicitPosition = hasAnyVoicePositionFlag(flags);
+      const positions = detectVoicePositionsForMatch(
+        segment,
+        match.item,
+        match.mode,
+        match,
+        matches,
+        matchIndex
+      );
+
+      if (!available.length) {
+        return {
+          mode: match.mode,
+          group: match.group,
+          item: match.item,
+          position: null,
+          quantity: "",
+          price: "",
+          selected: true,
+          exact: true,
+          needsClarification: false
+        };
+      }
+
+      if (hasExplicitPosition && positions.length === 1) {
+        return {
+          mode: match.mode,
+          group: match.group,
+          item: match.item,
+          position: cleanPositionValue(positions[0]) || null,
+          quantity: "",
+          price: "",
+          selected: true,
+          exact: true,
+          needsClarification: false
+        };
+      }
+
+      return null;
+    }
+
     function voicePartialSpan(segment, title, group = "") {
       const segmentRoots = meaningfulVoiceRoots(segment);
       const titleRoots = meaningfulVoiceRoots(`${title} ${group}`);
@@ -2384,11 +2464,11 @@
         });
       });
 
-      const autoSelect = expanded.length === 1 || hasPositionHint;
-
       return expanded.map(candidate => ({
         ...candidate,
-        selected: autoSelect
+        selected: false,
+        exact: false,
+        needsClarification: true
       }));
     }
 
@@ -2406,26 +2486,35 @@
           results.push({
             ...candidate,
             ...cleaned,
-            selected: Boolean(candidate.selected)
+            selected: Boolean(candidate.selected),
+            exact: Boolean(candidate.exact),
+            needsClarification: Boolean(candidate.needsClarification)
           });
         }
       }
 
       segments.forEach(segment => {
         const matches = voiceSegmentMatches(segment);
+
+        const exactCandidates = matches
+          .map((match, matchIndex) => exactVoiceCandidateFromMatch(segment, match, matches, matchIndex))
+          .filter(Boolean);
+
+        if (exactCandidates.length) {
+          exactCandidates.forEach(addCandidate);
+          return;
+        }
+
         const queryRoots = meaningfulVoiceRoots(segment);
         const shouldAddPartialVariants = queryRoots.length <= 2;
 
-        if (shouldAddPartialVariants) {
+        if (!matches.length) {
           voiceFallbackCandidates(segment).forEach(addCandidate);
+          return;
         }
 
-        if (!matches.length) {
-          if (!shouldAddPartialVariants) {
-            voiceFallbackCandidates(segment).forEach(addCandidate);
-          }
-
-          return;
+        if (shouldAddPartialVariants) {
+          voiceFallbackCandidates(segment).forEach(addCandidate);
         }
 
         matches.forEach((match, matchIndex) => {
@@ -2437,14 +2526,8 @@
             matches,
             matchIndex
           );
-          const available = availableVoicePositions(match.item, match.mode);
-          const flags = voicePositionContextFlags(segment, match, matches, matchIndex);
-          const hasExplicitPosition = hasAnyVoicePositionFlag(flags);
 
           positions.forEach(position => {
-            const hasPositionOptions = available.length > 0;
-            const selected = hasExplicitPosition || !hasPositionOptions || positions.length === 1;
-
             addCandidate({
               mode: match.mode,
               group: match.group,
@@ -2452,8 +2535,10 @@
               position: cleanPositionValue(position) || null,
               quantity: "",
               price: "",
-              selected,
-              partial: shouldAddPartialVariants
+              selected: false,
+              partial: true,
+              exact: false,
+              needsClarification: true
             });
           });
         });
@@ -2714,6 +2799,66 @@
       `;
     }
 
+    function renderVoiceCandidateCard(candidate, index) {
+      return `
+        <label class="voice-card">
+          <input
+            type="checkbox"
+            data-action="toggle-voice-candidate"
+            data-index="${index}"
+            ${candidate.selected ? "checked" : ""}
+          >
+          <span>
+            <strong>
+              ${escapeAttr(candidate.item)}
+              ${cleanPositionValue(candidate.position) ? ` — ${escapeAttr(cleanPositionValue(candidate.position))}` : ""}
+            </strong>
+            <span>
+              ${candidate.mode === "parts" ? "Автозапчасть" : "Услуга СТО"}
+              → ${escapeAttr(candidate.group)}
+              ${candidate.needsClarification ? " · нужно уточнить" : ""}
+            </span>
+          </span>
+        </label>
+      `;
+    }
+
+    function renderVoiceCandidatesList(candidates) {
+      if (!candidates.length) {
+        return "";
+      }
+
+      const exactCandidates = candidates
+        .map((candidate, index) => ({ candidate, index }))
+        .filter(entry => entry.candidate.exact);
+
+      const clarificationCandidates = candidates
+        .map((candidate, index) => ({ candidate, index }))
+        .filter(entry => !entry.candidate.exact);
+
+      const exactBlock = exactCandidates.length
+        ? `<div class="voice-section">
+            <h2 class="voice-section-title">Точно найдено</h2>
+            <p class="voice-section-hint">Эти позиции совпали с продиктованным текстом.</p>
+            <div class="voice-candidates">
+              ${exactCandidates.map(entry => renderVoiceCandidateCard(entry.candidate, entry.index)).join("")}
+            </div>
+          </div>`
+        : "";
+
+      const clarificationBlock = clarificationCandidates.length
+        ? `<div class="voice-section">
+            <h2 class="voice-section-title">Необходимо уточнение</h2>
+            <p class="voice-section-hint">Похожие варианты. Оставьте галочку только у нужных позиций.</p>
+            <div class="voice-candidates">
+              ${clarificationCandidates.map(entry => renderVoiceCandidateCard(entry.candidate, entry.index)).join("")}
+            </div>
+          </div>`
+        : "";
+
+      return exactBlock + clarificationBlock;
+    }
+
     function renderVoice() {
       setAccent(BLUE);
       const supported = voiceRecordingSupported();
@@ -2760,29 +2905,7 @@
             <div class="voice-status ${state.voiceStatusKind || ""}" id="voiceStatus">${escapeAttr(state.voiceStatusText || "")}</div>
 
             ${candidates.length
-              ? `<div class="voice-candidates">
-                  ${candidates.map((candidate, index) => `
-                    <label class="voice-card">
-                      <input
-                        type="checkbox"
-                        data-action="toggle-voice-candidate"
-                        data-index="${index}"
-                        ${candidate.selected ? "checked" : ""}
-                      >
-                      <span>
-                        <strong>
-                          ${escapeAttr(candidate.item)}
-                          ${cleanPositionValue(candidate.position) ? ` — ${escapeAttr(cleanPositionValue(candidate.position))}` : ""}
-                        </strong>
-                        <span>
-                          ${candidate.mode === "parts" ? "Автозапчасть" : "Услуга СТО"}
-                          → ${escapeAttr(candidate.group)}
-                          ${candidate.partial ? " · похожий вариант" : ""}
-                        </span>
-                      </span>
-                    </label>
-                  `).join("")}
-                </div>
+              ? `${renderVoiceCandidatesList(candidates)}
 
                 <div class="actions">
                   <button
