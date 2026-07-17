@@ -2380,20 +2380,61 @@
 
           const normalizedTitle = normalizeSearch(title);
           const normalizedSegment = normalizeSearch(segment);
+
+          const titleMatches = queryRoots.filter(root => (
+            titleRoots.some(token => (
+              token === root
+              || token.includes(root)
+              || root.includes(token)
+            ))
+          ));
+
+          const groupMatches = queryRoots.filter(root => (
+            meaningfulVoiceRoots(group).some(token => (
+              token === root
+              || token.includes(root)
+              || root.includes(token)
+            ))
+          ));
+
+          const mustBeStrict = queryRoots.length >= 2;
+
+          if (mustBeStrict) {
+            const enoughTitleMatch = titleMatches.length >= Math.min(2, queryRoots.length);
+            const fullPhraseInTitle = normalizedTitle.includes(normalizedSegment) && normalizedSegment.length >= 4;
+            const allQueryWordsMatched = rootMatches.length === queryRoots.length;
+
+            if (!fullPhraseInTitle && !enoughTitleMatch && !allQueryWordsMatched) {
+              continue;
+            }
+
+            if (titleMatches.length === 1 && groupMatches.length >= 1 && rootMatches.length < queryRoots.length) {
+              continue;
+            }
+          }
+
           const span = voicePartialSpan(segment, title, group);
 
           let score = rootMatches.length * 35;
 
           if (normalizedTitle.includes(normalizedSegment) && normalizedSegment.length >= 3) {
-            score += 90;
+            score += 120;
           }
 
-          if (titleRoots.some(root => queryRoots.includes(root))) {
-            score += 45;
+          if (titleMatches.length) {
+            score += titleMatches.length * 60;
+          }
+
+          if (groupMatches.length && titleMatches.length) {
+            score += 10;
           }
 
           if (rootMatches.length === queryRoots.length) {
-            score += 30;
+            score += 35;
+          }
+
+          if (queryRoots.length >= 2 && titleMatches.length < 2) {
+            score -= 80;
           }
 
           results.push({
@@ -2402,17 +2443,21 @@
             item: title,
             score,
             span: span || { start: 0, end: Math.max(0, queryRoots.length - 1), length: rootMatches.length },
-            partial: true
+            partial: true,
+            titleMatches: titleMatches.length,
+            rootMatches: rootMatches.length
           });
         }
       }
 
       return results
         .sort((left, right) => {
+          if (right.titleMatches !== left.titleMatches) return right.titleMatches - left.titleMatches;
+          if (right.rootMatches !== left.rootMatches) return right.rootMatches - left.rootMatches;
           if (right.score !== left.score) return right.score - left.score;
           return left.item.length - right.item.length;
         })
-        .slice(0, 20);
+        .slice(0, 8);
     }
 
     function voiceFallbackCandidates(segment) {
@@ -2439,10 +2484,18 @@
 
       const limited = unique
         .sort((left, right) => {
+          if ((right.titleMatches || 0) !== (left.titleMatches || 0)) {
+            return (right.titleMatches || 0) - (left.titleMatches || 0);
+          }
+
+          if ((right.rootMatches || 0) !== (left.rootMatches || 0)) {
+            return (right.rootMatches || 0) - (left.rootMatches || 0);
+          }
+
           if (right.score !== left.score) return right.score - left.score;
           return left.item.length - right.item.length;
         })
-        .slice(0, 12);
+        .slice(0, 6);
 
       const flags = voicePositionFlags(segment);
       const hasPositionHint = hasAnyVoicePositionFlag(flags);
