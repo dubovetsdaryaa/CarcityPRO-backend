@@ -510,6 +510,20 @@
       line-height: 1.35;
     }
 
+    .voice-clarify-group {
+      display: grid;
+      gap: 8px;
+      margin-top: 6px;
+    }
+
+    .voice-clarify-title {
+      margin: 0;
+      color: #46505F;
+      font-size: 13px;
+      font-weight: 760;
+      line-height: 1.35;
+    }
+
     .voice-card {
       display: grid;
       grid-template-columns: 28px 1fr;
@@ -2488,7 +2502,8 @@
             ...cleaned,
             selected: Boolean(candidate.selected),
             exact: Boolean(candidate.exact),
-            needsClarification: Boolean(candidate.needsClarification)
+            needsClarification: Boolean(candidate.needsClarification),
+            sourceText: String(candidate.sourceText || "")
           });
         }
       }
@@ -2501,7 +2516,12 @@
           .filter(Boolean);
 
         if (exactCandidates.length) {
-          exactCandidates.forEach(addCandidate);
+          exactCandidates
+            .map(candidate => ({
+              ...candidate,
+              sourceText: segment
+            }))
+            .forEach(addCandidate);
           return;
         }
 
@@ -2509,12 +2529,22 @@
         const shouldAddPartialVariants = queryRoots.length <= 2;
 
         if (!matches.length) {
-          voiceFallbackCandidates(segment).forEach(addCandidate);
+          voiceFallbackCandidates(segment)
+            .map(candidate => ({
+              ...candidate,
+              sourceText: segment
+            }))
+            .forEach(addCandidate);
           return;
         }
 
         if (shouldAddPartialVariants) {
-          voiceFallbackCandidates(segment).forEach(addCandidate);
+          voiceFallbackCandidates(segment)
+            .map(candidate => ({
+              ...candidate,
+              sourceText: segment
+            }))
+            .forEach(addCandidate);
         }
 
         matches.forEach((match, matchIndex) => {
@@ -2538,7 +2568,8 @@
               selected: false,
               partial: true,
               exact: false,
-              needsClarification: true
+              needsClarification: true,
+              sourceText: segment
             });
           });
         });
@@ -2846,13 +2877,35 @@
           </div>`
         : "";
 
-      const clarificationBlock = clarificationCandidates.length
+      const groupedClarifications = [];
+
+      clarificationCandidates.forEach(entry => {
+        const sourceText = String(entry.candidate.sourceText || "запрос").trim() || "запрос";
+        let group = groupedClarifications.find(item => item.sourceText === sourceText);
+
+        if (!group) {
+          group = {
+            sourceText,
+            entries: []
+          };
+          groupedClarifications.push(group);
+        }
+
+        group.entries.push(entry);
+      });
+
+      const clarificationBlock = groupedClarifications.length
         ? `<div class="voice-section">
             <h2 class="voice-section-title">Необходимо уточнение</h2>
-            <p class="voice-section-hint">Похожие варианты. Оставьте галочку только у нужных позиций.</p>
-            <div class="voice-candidates">
-              ${clarificationCandidates.map(entry => renderVoiceCandidateCard(entry.candidate, entry.index)).join("")}
-            </div>
+            <p class="voice-section-hint">Выберите подходящие варианты только для фраз без точного совпадения.</p>
+            ${groupedClarifications.map(group => `
+              <div class="voice-clarify-group">
+                <p class="voice-clarify-title">Для: ${escapeAttr(group.sourceText)}</p>
+                <div class="voice-candidates">
+                  ${group.entries.map(entry => renderVoiceCandidateCard(entry.candidate, entry.index)).join("")}
+                </div>
+              </div>
+            `).join("")}
           </div>`
         : "";
 
