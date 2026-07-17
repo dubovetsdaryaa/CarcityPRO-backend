@@ -1007,7 +1007,7 @@
 
 
     async function trackAppOpen() {
-      if (!tg?.initData) {
+      if (!getTelegramInitData()) {
         return;
       }
 
@@ -3401,10 +3401,10 @@
         return;
       }
 
-      if (!tg?.initData) {
+      if (!getTelegramInitData()) {
         if (status) {
           status.className = "pdf-status error";
-          status.textContent = "Откройте приложение именно внутри Telegram.";
+          status.textContent = "Не удалось подтвердить Telegram-сессию. Закройте Mini App и откройте заново через /start.";
         }
         return;
       }
