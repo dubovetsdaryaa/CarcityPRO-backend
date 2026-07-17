@@ -930,6 +930,27 @@
   <script>
     const tg = window.Telegram?.WebApp;
 
+    function getTelegramInitData() {
+      const directInitData = tg?.initData || "";
+
+      if (directInitData) {
+        return directInitData;
+      }
+
+      try {
+        const hash = window.location.hash || "";
+
+        if (hash.startsWith("#tginit=")) {
+          return decodeURIComponent(hash.slice("#tginit=".length));
+        }
+
+        const params = new URLSearchParams(hash.replace(/^#/, ""));
+        return params.get("tginit") || "";
+      } catch (_) {
+        return "";
+      }
+    }
+
     if (tg) {
       tg.ready();
       tg.expand();
@@ -997,7 +1018,7 @@
             "Content-Type": "application/json"
           },
           body: JSON.stringify({
-            init_data: tg.initData
+            init_data: getTelegramInitData()
           })
         });
       } catch (error) {
@@ -3412,7 +3433,7 @@
             "Content-Type": "application/json"
           },
           body: JSON.stringify({
-            init_data: tg.initData,
+            init_data: getTelegramInitData(),
             sto: state.actInfo.sto.trim(),
             master: state.actInfo.master.trim(),
             master_phone: state.actInfo.masterPhone.trim(),
@@ -3957,7 +3978,7 @@
             },
             signal: controller.signal,
             body: JSON.stringify({
-              init_data: tg?.initData || "",
+              init_data: getTelegramInitData(),
               content_type: blob.type || "audio/webm",
               audio_base64: audioBase64
             })
@@ -3976,16 +3997,21 @@
 
         if (!response.ok || !result.ok) {
           const detail = result.detail || result.error || "Не удалось распознать голос.";
+          const detailText = formatErrorDetail(detail);
 
-          if (String(detail).includes("taking too long") || String(detail).includes("did not respond in time")) {
+          if (detailText.includes("init_data") || detailText.includes("init data") || detailText.includes("Telegram")) {
+            throw new Error("Не удалось подтвердить Telegram-сессию. Закройте Mini App и откройте заново через /start.");
+          }
+
+          if (detailText.includes("taking too long") || detailText.includes("did not respond in time")) {
             throw new Error("Groq долго отвечает. Попробуйте ещё раз или введите текст вручную.");
           }
 
-          if (String(detail).includes("temporarily unavailable")) {
+          if (detailText.includes("temporarily unavailable")) {
             throw new Error("Groq временно недоступен. Попробуйте ещё раз чуть позже.");
           }
 
-          throw new Error(detail);
+          throw new Error(detailText || "Не удалось распознать голос.");
         }
 
         return cleanVoiceTranscript(result.text || "");
