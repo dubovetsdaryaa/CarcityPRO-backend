@@ -2865,8 +2865,8 @@
               <button class="primary" data-action="save-item-details">
                 ${saveButtonText}
               </button>
-              <button class="secondary" data-action="skip-item-details">
-                Пропустить
+              <button class="secondary" data-action="back">
+                Назад
               </button>
             </div>
           </div>
@@ -3715,17 +3715,6 @@
 
           haptic();
           addPendingItems({ details });
-          go("success");
-        });
-      });
-
-      document.querySelectorAll('[data-action="skip-item-details"]').forEach(el => {
-        el.addEventListener("click", () => {
-          haptic();
-          addPendingItems({
-            quantity: "",
-            price: ""
-          });
           go("success");
         });
       });
