@@ -1100,7 +1100,6 @@
         sto: loadSavedValue("carcitypro_sto"),
         master: loadSavedValue("carcitypro_master"),
         masterPhone: loadSavedValue("carcitypro_master_phone"),
-        clientPhone: "",
         carBrand: "",
         carModel: "",
         carYear: "",
@@ -3107,23 +3106,7 @@
               >
               <span class="field-hint">Номер необязательный, но тоже сохранится.</span>
             </label>
-
-            <label class="field">
-              <span class="field-label">Номер телефона клиента</span>
-              <input
-                class="field-input"
-                id="clientPhoneInput"
-                type="tel"
-                inputmode="tel"
-                maxlength="50"
-                autocomplete="tel"
-                placeholder="Например: +7 701 123 45 67"
-                value="${escapeAttr(state.actInfo.clientPhone)}"
-              >
-              <span class="field-hint">Нужен только для кнопки “Отправить клиенту в WhatsApp”. В PDF не попадёт.</span>
-            </label>
-
-            <div class="field">
+<div class="field">
               <span class="field-label">Марка</span>
               <div class="suggest-wrap">
                 <input
@@ -3352,26 +3335,28 @@
       if (!status) return;
 
       if (!result.public_url) {
-        status.className = "pdf-status error";
-        status.textContent = `PDF отправлен в Telegram, но ссылка для клиента не создана. Акт №${result.act_number}. Проверьте базу данных.`;
+        status.className = "pdf-status success";
+        status.innerHTML = `
+          <div class="pdf-result">
+            <strong class="pdf-result-title">PDF готов. Акт №${escapeAttr(result.act_number)}</strong>
+            <p class="pdf-result-text">
+              PDF отправлен тебе в Telegram.
+            </p>
+          </div>
+        `;
         return;
       }
-
-      const whatsappButton = result.whatsapp_url
-        ? `<button class="primary share-button" type="button" data-action="share-whatsapp">Отправить клиенту в WhatsApp</button>`
-        : "";
 
       status.className = "pdf-status success";
       status.innerHTML = `
         <div class="pdf-result">
           <strong class="pdf-result-title">PDF готов. Акт №${escapeAttr(result.act_number)}</strong>
           <p class="pdf-result-text">
-            PDF отправлен тебе в Telegram. Клиенту можно отправить ссылку на акт:
-            он откроет страницу и сам скачает PDF.
+            PDF отправлен тебе в Telegram. Публичная страница акта создана:
+            её можно открыть и проверить.
           </p>
 
           <div class="share-actions">
-            ${whatsappButton}
             <button class="secondary share-button" type="button" data-action="open-public-act">
               Открыть страницу акта
             </button>
@@ -3381,11 +3366,6 @@
           </div>
         </div>
       `;
-
-      status.querySelector('[data-action="share-whatsapp"]')?.addEventListener("click", () => {
-        haptic();
-        openExternalUrl(result.whatsapp_url);
-      });
 
       status.querySelector('[data-action="open-public-act"]')?.addEventListener("click", () => {
         haptic();
@@ -3437,7 +3417,7 @@
             sto: state.actInfo.sto.trim(),
             master: state.actInfo.master.trim(),
             master_phone: state.actInfo.masterPhone.trim(),
-            client_phone: state.actInfo.clientPhone.trim(),
+            client_phone: "",
             car: buildCarText(),
             car_brand: state.actInfo.carBrand.trim(),
             car_model: state.actInfo.carModel.trim(),
@@ -3747,7 +3727,6 @@
       const stoInput = document.getElementById("stoInput");
       const masterInput = document.getElementById("masterInput");
       const masterPhoneInput = document.getElementById("masterPhoneInput");
-      const clientPhoneInput = document.getElementById("clientPhoneInput");
       const carBrandInput = document.getElementById("carBrandInput");
       const carModelInput = document.getElementById("carModelInput");
       const carYearInput = document.getElementById("carYearInput");
@@ -3771,12 +3750,6 @@
         masterPhoneInput.addEventListener("input", () => {
           state.actInfo.masterPhone = masterPhoneInput.value;
           saveValue("carcitypro_master_phone", masterPhoneInput.value);
-        });
-      }
-
-      if (clientPhoneInput) {
-        clientPhoneInput.addEventListener("input", () => {
-          state.actInfo.clientPhone = clientPhoneInput.value;
         });
       }
 
