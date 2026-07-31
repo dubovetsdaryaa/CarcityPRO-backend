@@ -3334,45 +3334,17 @@
     function showPdfResult(status, result) {
       if (!status) return;
 
-      if (!result.public_url) {
-        status.className = "pdf-status success";
-        status.innerHTML = `
-          <div class="pdf-result">
-            <strong class="pdf-result-title">PDF готов. Акт №${escapeAttr(result.act_number)}</strong>
-            <p class="pdf-result-text">
-              PDF отправлен тебе в Telegram.
-            </p>
-          </div>
-        `;
-        return;
-      }
-
       status.className = "pdf-status success";
       status.innerHTML = `
         <div class="pdf-result">
           <strong class="pdf-result-title">PDF готов. Акт №${escapeAttr(result.act_number)}</strong>
           <p class="pdf-result-text">
-            PDF отправлен тебе в Telegram. Публичная страница акта создана:
-            её можно открыть и проверить.
+            PDF отправлен тебе в Telegram.
           </p>
-
-          <div class="share-actions">
-            <button class="secondary share-button" type="button" data-action="open-public-act">
-              Открыть страницу акта
-            </button>
-            <a class="secondary share-button" href="${escapeAttr(result.public_pdf_url || "")}" target="_blank" rel="noopener">
-              Открыть PDF
-            </a>
-          </div>
         </div>
       `;
-
-      status.querySelector('[data-action="open-public-act"]')?.addEventListener("click", () => {
-        haptic();
-        openExternalUrl(result.public_url);
-      });
-
     }
+
 
     async function generatePdfAct(button) {
       const status = document.getElementById("pdfStatus");
