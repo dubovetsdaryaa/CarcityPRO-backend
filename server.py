@@ -43,7 +43,7 @@ PUBLIC_BASE_URL = os.environ.get(
     "PUBLIC_BASE_URL",
     "https://carcitypro-backend.onrender.com",
 ).rstrip("/")
-MINI_APP_URL = "https://dubovetsdaryaa.github.io/CarcityPRO-app/?v=render-loader-v4"
+MINI_APP_URL = "https://dubovetsdaryaa.github.io/CarcityPRO-app/?v=render-loader-v7"
 STATIC_DIR = Path(__file__).resolve().parent / "static"
 WEBHOOK_PATH = "/telegram/webhook"
 
@@ -1600,8 +1600,8 @@ async def generate_act(payload: GenerateActRequest) -> dict:
     )
 
     public_token = secrets.token_urlsafe(18)
-    public_url = f"{PUBLIC_BASE_URL}/act/{public_token}"
-    public_pdf_url = f"{public_url}/pdf"
+    draft_public_url = f"{PUBLIC_BASE_URL}/act/{public_token}"
+    draft_public_pdf_url = f"{draft_public_url}/pdf"
 
     items = [
         item.model_dump()
@@ -1624,17 +1624,6 @@ async def generate_act(payload: GenerateActRequest) -> dict:
         },
     )
 
-    filename = f"CarcityPRO_act_{act_number}.pdf"
-
-    await send_pdf_to_telegram(
-        chat_id=telegram["user_id"],
-        pdf_bytes=pdf_bytes,
-        filename=filename,
-        act_number=act_number,
-        item_count=len(items),
-        public_url=public_url,
-    )
-
     stored = False
 
     try:
@@ -1655,9 +1644,12 @@ async def generate_act(payload: GenerateActRequest) -> dict:
             items=items,
         )
     except Exception as error:
-        print(f"WARNING: act analytics failed: {error}")
+        print(f"WARNING: act storage failed. PDF will still be sent: {error}")
 
     if stored:
+        public_url = draft_public_url
+        public_pdf_url = draft_public_pdf_url
+
         client_message = build_client_message(
             public_url=public_url,
             sto=payload.sto.strip(),
@@ -1667,15 +1659,23 @@ async def generate_act(payload: GenerateActRequest) -> dict:
             act_number=act_number,
         )
 
-        whatsapp_url = build_whatsapp_url(
-            client_phone=payload.client_phone.strip(),
-            message=client_message,
-        )
+        whatsapp_url = ""
     else:
         client_message = ""
         whatsapp_url = ""
         public_url = ""
         public_pdf_url = ""
+
+    filename = f"CarcityPRO_act_{act_number}.pdf"
+
+    await send_pdf_to_telegram(
+        chat_id=telegram["user_id"],
+        pdf_bytes=pdf_bytes,
+        filename=filename,
+        act_number=act_number,
+        item_count=len(items),
+        public_url=public_url,
+    )
 
     return {
         "ok": True,
@@ -1686,4 +1686,5 @@ async def generate_act(payload: GenerateActRequest) -> dict:
         "public_pdf_url": public_pdf_url,
         "whatsapp_url": whatsapp_url,
         "client_message": client_message,
+        "database_available": stored,
     }

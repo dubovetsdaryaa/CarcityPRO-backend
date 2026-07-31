@@ -11,26 +11,39 @@ from psycopg.types.json import Jsonb
 
 
 DATABASE_URL = os.environ.get("DATABASE_URL", "").strip()
+DATABASE_DISABLED = os.environ.get("DISABLE_DATABASE", "").strip().lower() in {
+    "1",
+    "true",
+    "yes",
+    "on",
+}
 
 
 def database_enabled() -> bool:
-    return bool(DATABASE_URL)
+    return bool(DATABASE_URL) and not DATABASE_DISABLED
 
 
 async def _connect() -> psycopg.AsyncConnection:
+    if DATABASE_DISABLED:
+        raise RuntimeError("Database storage is disabled by DISABLE_DATABASE.")
+
     if not DATABASE_URL:
         raise RuntimeError("DATABASE_URL is not configured.")
 
     return await psycopg.AsyncConnection.connect(
         DATABASE_URL,
         row_factory=dict_row,
+        connect_timeout=5,
     )
 
 
-async def init_database(max_attempts: int = 20) -> bool:
+async def init_database(max_attempts: int = 2) -> bool:
     """Create tables and indexes. Keep the API alive if storage is unavailable."""
     if not database_enabled():
-        print("WARNING: DATABASE_URL is not configured. Analytics storage is disabled.")
+        if DATABASE_DISABLED:
+            print("WARNING: Database storage is disabled by DISABLE_DATABASE. Core PDF flow stays enabled.")
+        else:
+            print("WARNING: DATABASE_URL is not configured. Analytics storage is disabled.")
         return False
 
     statements = [
@@ -145,7 +158,7 @@ async def init_database(max_attempts: int = 20) -> bool:
                 f"WARNING: PostgreSQL init attempt {attempt}/{max_attempts} failed: {error}"
             )
             if attempt < max_attempts:
-                await asyncio.sleep(min(3 * attempt, 10))
+                await asyncio.sleep(2)
 
     print("WARNING: PostgreSQL storage remains unavailable. Core PDF flow stays enabled.")
     return False
