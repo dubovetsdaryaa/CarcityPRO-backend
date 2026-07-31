@@ -43,7 +43,7 @@ PUBLIC_BASE_URL = os.environ.get(
     "PUBLIC_BASE_URL",
     "https://carcitypro-backend.onrender.com",
 ).rstrip("/")
-MINI_APP_URL = "https://dubovetsdaryaa.github.io/CarcityPRO-app/?v=render-loader-v7"
+MINI_APP_URL = "https://dubovetsdaryaa.github.io/CarcityPRO-app/?v=render-loader-v8"
 STATIC_DIR = Path(__file__).resolve().parent / "static"
 WEBHOOK_PATH = "/telegram/webhook"
 
@@ -1646,25 +1646,10 @@ async def generate_act(payload: GenerateActRequest) -> dict:
     except Exception as error:
         print(f"WARNING: act storage failed. PDF will still be sent: {error}")
 
-    if stored:
-        public_url = draft_public_url
-        public_pdf_url = draft_public_pdf_url
-
-        client_message = build_client_message(
-            public_url=public_url,
-            sto=payload.sto.strip(),
-            master=payload.master.strip(),
-            master_phone=payload.master_phone.strip(),
-            car=payload.car.strip(),
-            act_number=act_number,
-        )
-
-        whatsapp_url = ""
-    else:
-        client_message = ""
-        whatsapp_url = ""
-        public_url = ""
-        public_pdf_url = ""
+    client_message = ""
+    whatsapp_url = ""
+    public_url = ""
+    public_pdf_url = ""
 
     filename = f"CarcityPRO_act_{act_number}.pdf"
 
